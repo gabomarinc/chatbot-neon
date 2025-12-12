@@ -6781,41 +6781,6 @@ class ChatbotDashboard {
             });
         }
 
-        // Botón de guardar prospectos en base de datos
-        const saveBtn = document.getElementById('saveProspectsBtn');
-        if (saveBtn) {
-            // Remover listeners anteriores para evitar duplicados
-            const newSaveBtn = saveBtn.cloneNode(true);
-            saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
-            
-            // Inicialmente deshabilitado (solo se habilita después de extraer)
-            newSaveBtn.disabled = true;
-            newSaveBtn.classList.add('btn-disabled');
-            
-            newSaveBtn.addEventListener('click', async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                // Prevenir múltiples clics simultáneos
-                if (newSaveBtn.disabled) {
-                    console.log('⚠️ Guardado ya en progreso o no hay prospectos para guardar');
-                    return;
-                }
-                
-                // Deshabilitar botón durante la ejecución
-                newSaveBtn.disabled = true;
-                const originalText = newSaveBtn.innerHTML;
-                newSaveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
-                
-                try {
-                    await this.saveExtractedProspects();
-                } finally {
-                    // Rehabilitar botón después de la ejecución
-                    newSaveBtn.disabled = this.extractedProspects.length > 0;
-                    newSaveBtn.innerHTML = originalText;
-                }
-            });
-        }
 
         // Configurar búsqueda y filtros
         this.setupProspectsFilters();
@@ -7341,66 +7306,31 @@ class ChatbotDashboard {
             
             console.log(`📊 Analizando ${chats.length} chats...`);
 
-            // SOLO EXTRAER - NO GUARDAR AÚN
+            // PASO 1: Extraer prospectos de los chats
             const result = await window.prospectsService.extractProspectsFromAllChats(chats, this.dataService);
             
-            if (result.success) {
-                console.log(`📊 ${result.prospects.length} prospectos encontrados, ${result.errors.length} errores en el análisis`);
-                
-                // Guardar prospectos extraídos temporalmente
-                this.extractedProspects = result.prospects;
-                
-                // Mostrar errores de análisis si los hay
-                if (result.errors.length > 0) {
-                    console.warn('⚠️ Errores durante el análisis:', result.errors);
-                    result.errors.forEach(err => {
-                        console.error(`  - Chat ${err.chatId}: ${err.error}`);
-                    });
-                }
-
-                // Mensaje de extracción exitosa
-                let message = `✅ ${result.prospects.length} prospecto${result.prospects.length > 1 ? 's' : ''} extraído${result.prospects.length > 1 ? 's' : ''}`;
-                if (result.errors.length > 0) {
-                    message += ` (${result.errors.length} error${result.errors.length > 1 ? 'es' : ''} en el análisis)`;
-                }
-                message += '. Haz clic en "Guardar en Base de Datos" para guardarlos.';
-                this.showNotification(message, 'success');
-                
-                // Habilitar botón de guardar
-                const saveBtn = document.getElementById('saveProspectsBtn');
-                if (saveBtn) {
-                    saveBtn.disabled = false;
-                    saveBtn.classList.remove('btn-disabled');
-                    saveBtn.innerHTML = `<i class="fas fa-save"></i> Guardar en Base de Datos (${result.prospects.length})`;
-                }
-            } else {
+            if (!result.success) {
                 throw new Error(result.error || 'Error extrayendo prospectos');
             }
-        } catch (error) {
-            console.error('❌ Error extrayendo prospectos:', error);
-            this.showNotification('Error al extraer prospectos: ' + error.message, 'error');
-            // Deshabilitar botón de guardar si hay error
-            const saveBtn = document.getElementById('saveProspectsBtn');
-            if (saveBtn) {
-                saveBtn.disabled = true;
-                saveBtn.classList.add('btn-disabled');
-            }
-        }
-    }
 
-    async saveExtractedProspects() {
-        try {
-            if (!this.extractedProspects || this.extractedProspects.length === 0) {
-                this.showNotification('No hay prospectos extraídos para guardar. Primero extrae los prospectos.', 'warning');
+            console.log(`📊 ${result.prospects.length} prospectos encontrados, ${result.errors.length} errores en el análisis`);
+            
+            if (result.prospects.length === 0) {
+                this.showNotification('No se encontraron prospectos para guardar.', 'warning');
                 return;
             }
 
-            if (!window.prospectsService) {
-                throw new Error('ProspectsService no disponible');
+            // Mostrar errores de análisis si los hay
+            if (result.errors.length > 0) {
+                console.warn('⚠️ Errores durante el análisis:', result.errors);
+                result.errors.forEach(err => {
+                    console.error(`  - Chat ${err.chatId}: ${err.error}`);
+                });
             }
 
-            console.log(`💾 Guardando ${this.extractedProspects.length} prospectos en base de datos...`);
-            this.showNotification(`Guardando ${this.extractedProspects.length} prospectos en base de datos...`, 'info');
+            // PASO 2: GUARDAR EN BASE DE DATOS PRIMERO
+            console.log(`💾 Guardando ${result.prospects.length} prospectos en base de datos...`);
+            this.showNotification(`Guardando ${result.prospects.length} prospectos en base de datos...`, 'info');
 
             let savedCount = 0;
             let alreadyExistsCount = 0;
@@ -7409,9 +7339,9 @@ class ChatbotDashboard {
             const saveErrors = [];
 
             // Usar batch operations cuando hay múltiples prospectos
-            if (this.extractedProspects.length > 1) {
-                console.log(`📦 Usando batch operations para ${this.extractedProspects.length} prospectos...`);
-                const batchResult = await window.prospectsService.saveProspectsBatch(this.extractedProspects);
+            if (result.prospects.length > 1) {
+                console.log(`📦 Usando batch operations para ${result.prospects.length} prospectos...`);
+                const batchResult = await window.prospectsService.saveProspectsBatch(result.prospects);
                 
                 savedCount = batchResult.savedCount || 0;
                 alreadyExistsCount = batchResult.alreadyExistsCount || 0;
@@ -7427,7 +7357,7 @@ class ChatbotDashboard {
                 console.log(`✅ Batch completado: ${savedCount} nuevos, ${alreadyExistsCount} existentes, ${updatedCount} actualizados, ${errorCount} errores`);
             } else {
                 // Si hay solo uno, usar método individual
-                for (const prospectData of this.extractedProspects) {
+                for (const prospectData of result.prospects) {
                     console.log(`💾 Guardando prospecto: ${prospectData.nombre} (chat: ${prospectData.chatId})`);
                     const saveResult = await window.prospectsService.saveProspect(prospectData);
                     if (saveResult.success) {
@@ -7471,36 +7401,31 @@ class ChatbotDashboard {
             
             if (parts.length > 0) {
                 message = `✅ ${parts.join(', ')} prospecto${parts.length > 1 ? 's' : ''} guardado${parts.length > 1 ? 's' : ''}`;
-                if (errorCount > 0) {
-                    message += ` (${errorCount} error${errorCount > 1 ? 'es' : ''})`;
+                if (errorCount > 0 || result.errors.length > 0) {
+                    const totalErrors = errorCount + result.errors.length;
+                    message += ` (${totalErrors} error${totalErrors > 1 ? 'es' : ''})`;
                 }
                 this.showNotification(message, 'success');
             } else {
                 message = `⚠️ No se pudieron guardar prospectos`;
-                if (errorCount > 0) {
-                    message += ` (${errorCount} error${errorCount > 1 ? 'es' : ''})`;
+                if (errorCount > 0 || result.errors.length > 0) {
+                    const totalErrors = errorCount + result.errors.length;
+                    message += ` (${totalErrors} error${totalErrors > 1 ? 'es' : ''})`;
                     console.log('💡 Abre la consola del navegador para ver los detalles de los errores');
                 }
                 this.showNotification(message, 'warning');
             }
 
-            // Limpiar prospectos extraídos y deshabilitar botón
-            this.extractedProspects = [];
-            const saveBtn = document.getElementById('saveProspectsBtn');
-            if (saveBtn) {
-                saveBtn.disabled = true;
-                saveBtn.classList.add('btn-disabled');
-                saveBtn.innerHTML = `<i class="fas fa-save"></i> Guardar en Base de Datos`;
-            }
-
-            // IMPORTANTE: Recargar prospectos SOLO DESPUÉS de guardarlos exitosamente
+            // PASO 3: SOLO DESPUÉS DE GUARDAR, MOSTRAR EN PANTALLA
             if (savedCount > 0 || updatedCount > 0 || alreadyExistsCount > 0) {
                 console.log('🔄 Recargando lista de prospectos después de guardar...');
                 await this.loadProspects();
+            } else {
+                console.log('⚠️ No se guardaron prospectos, no recargando lista');
             }
         } catch (error) {
-            console.error('❌ Error guardando prospectos:', error);
-            this.showNotification('Error al guardar prospectos: ' + error.message, 'error');
+            console.error('❌ Error extrayendo prospectos:', error);
+            this.showNotification('Error al extraer prospectos: ' + error.message, 'error');
         }
     }
 
