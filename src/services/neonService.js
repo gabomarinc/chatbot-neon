@@ -627,8 +627,24 @@ class NeonService {
                     chat_id: records[0].chat_id,
                     tieneNombre: !!records[0].nombre,
                     tieneChatId: !!records[0].chat_id,
+                    imagenes_urls: records[0].imagenes_urls ? (typeof records[0].imagenes_urls === 'string' ? 'JSON string' : 'array/object') : 'null/undefined',
+                    documentos_urls: records[0].documentos_urls ? (typeof records[0].documentos_urls === 'string' ? 'JSON string' : 'array/object') : 'null/undefined',
                     registroCompleto: records[0]
                 });
+                
+                // Mostrar ejemplo de URL de imagen si existe
+                if (records[0].imagenes_urls) {
+                    try {
+                        const imgUrls = typeof records[0].imagenes_urls === 'string' 
+                            ? JSON.parse(records[0].imagenes_urls) 
+                            : records[0].imagenes_urls;
+                        if (Array.isArray(imgUrls) && imgUrls.length > 0) {
+                            console.log('📷 Ejemplo de URL de imagen:', imgUrls[0]);
+                        }
+                    } catch (e) {
+                        console.warn('⚠️ Error parseando imagenes_urls para log:', e);
+                    }
+                }
             }
             
             const response = await fetch(`${this.apiBase}/prospectos/batch`, {
