@@ -49,6 +49,9 @@ class ChatbotDashboard {
             totalFiltered: 0
         };
         
+        // Prospectos extraídos pero no guardados aún
+        this.extractedProspects = [];
+        
         this.init();
     }
     // Espera a que window.teamManager esté disponible
