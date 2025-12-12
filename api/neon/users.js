@@ -17,21 +17,47 @@ module.exports = async (req, res) => {
 
     try {
         // Parsear la URL para determinar la ruta
-        // En Vercel, req.url contiene la ruta completa después del dominio
-        const url = req.url || req.path || '';
+        // En Vercel con rewrites, req.url puede contener la ruta original completa
+        // o solo la parte después del destino del rewrite
+        let url = req.url || req.path || '';
+        
+        // Si la URL no comienza con /api, puede que Vercel haya hecho un rewrite
+        // En ese caso, la URL original puede estar en headers
+        if (!url.startsWith('/')) {
+            url = '/' + url;
+        }
+        
         console.log('🔍 URL completa recibida:', url);
         console.log('🔍 Query params:', req.query);
         console.log('🔍 Method:', req.method);
+        console.log('🔍 Headers referer:', req.headers.referer);
         
-        // Remover query string si existe
-        const urlWithoutQuery = url.split('?')[0];
-        // Filtrar partes vacías y partes conocidas del path base
-        const urlParts = urlWithoutQuery.split('/').filter(p => p && p !== 'api' && p !== 'neon' && p !== 'users');
+        // Extraer la parte relevante de la URL
+        // Patrones posibles:
+        // - /api/neon/users/email/admin@example.com
+        // - /email/admin@example.com (después del rewrite)
+        // - email/admin@example.com (sin barra inicial)
+        let urlPath = url.split('?')[0]; // Remover query string
         
+        // Si la URL contiene /api/neon/users, extraer solo la parte después
+        const apiIndex = urlPath.indexOf('/api/neon/users');
+        if (apiIndex !== -1) {
+            urlPath = urlPath.substring(apiIndex + '/api/neon/users'.length);
+        }
+        
+        // Asegurar que empiece con /
+        if (!urlPath.startsWith('/')) {
+            urlPath = '/' + urlPath;
+        }
+        
+        // Dividir en partes y filtrar vacías
+        const urlParts = urlPath.split('/').filter(p => p && p.trim());
+        
+        console.log('🔍 URL path procesado:', urlPath);
         console.log('🔍 URL parts después de filtrar:', urlParts);
         
         // Determinar el tipo de operación basado en la URL
-        const isEmailRoute = urlParts.includes('email') || urlParts[0] === 'email' || url.includes('/email/');
+        const isEmailRoute = urlParts.includes('email') || url.includes('/email/') || url.includes('/email?');
         const isPasswordRoute = urlParts.includes('password') || url.includes('/password');
         const isLastLoginRoute = urlParts.includes('last-login') || url.includes('/last-login');
         const hasUserId = urlParts.length > 0 && !isEmailRoute && !isPasswordRoute && !isLastLoginRoute && urlParts[0] !== 'email';
@@ -48,37 +74,56 @@ module.exports = async (req, res) => {
         if (isEmailRoute) {
             let email = null;
             
-            // Intentar obtener de diferentes formas
-            // 1. De urlParts si email está en la posición correcta
-            const emailIndex = urlParts.indexOf('email');
-            if (emailIndex !== -1 && urlParts[emailIndex + 1]) {
-                email = decodeURIComponent(urlParts[emailIndex + 1]);
+            // Intentar obtener email de diferentes formas (orden de prioridad)
+            
+            // 1. De query params (más confiable)
+            if (req.query.email) {
+                email = decodeURIComponent(req.query.email);
+                console.log('📧 Email obtenido de query params:', email);
             }
-            // 2. De query params
-            else if (req.query.email) {
-                email = req.query.email;
-            }
-            // 3. Intentar extraer de la URL completa con regex
+            // 2. De urlParts si email está en la posición correcta
             else {
-                const emailMatch = url.match(/email[\/]?([^\/\?&]+)/i);
-                if (emailMatch && emailMatch[1]) {
-                    email = decodeURIComponent(emailMatch[1]);
+                const emailIndex = urlParts.indexOf('email');
+                if (emailIndex !== -1 && urlParts[emailIndex + 1]) {
+                    email = decodeURIComponent(urlParts[emailIndex + 1]);
+                    console.log('📧 Email obtenido de urlParts (después de email):', email);
+                }
+                // 3. Intentar extraer de la URL completa con regex (más flexible)
+                else {
+                    // Buscar patrones como /email/xxx o email/xxx o email?xxx
+                    const emailPatterns = [
+                        /email[\/]([^\/\?&]+)/i,  // /email/value o email/value
+                        /email[=]([^\/\?&]+)/i,   // email=value
+                        /[\/]email[\/]([^\/\?&]+)/i  // /email/value (más específico)
+                    ];
+                    
+                    for (const pattern of emailPatterns) {
+                        const emailMatch = url.match(pattern);
+                        if (emailMatch && emailMatch[1]) {
+                            email = decodeURIComponent(emailMatch[1]);
+                            console.log('📧 Email obtenido de regex pattern:', email);
+                            break;
+                        }
+                    }
                 }
             }
-            // 4. Si aún no tenemos email, intentar desde cualquier parte de urlParts
+            
+            // 4. Si aún no tenemos email, buscar cualquier parte que parezca un email
             if (!email && urlParts.length > 0) {
-                // Buscar cualquier parte que parezca un email
                 for (const part of urlParts) {
-                    if (part.includes('@')) {
-                        email = decodeURIComponent(part);
+                    const decodedPart = decodeURIComponent(part);
+                    if (decodedPart.includes('@') && decodedPart.includes('.')) {
+                        email = decodedPart;
+                        console.log('📧 Email encontrado en urlParts (búsqueda por @):', email);
                         break;
                     }
                 }
             }
 
-            console.log('📧 Email extraído:', email);
-            console.log('📧 URL original:', url);
-            console.log('📧 URL parts:', urlParts);
+            console.log('📧 Email final extraído:', email);
+            console.log('📧 URL original completa:', url);
+            console.log('📧 URL path procesado:', urlPath);
+            console.log('📧 URL parts finales:', urlParts);
 
             if (!email) {
                 console.error('❌ No se pudo extraer el email de la URL');
