@@ -713,13 +713,14 @@ class ChatbotDashboard {
             tabContent.classList.add('active');
         }
         
-        // Si es la pestaña de configuración API, cargar el token
+        // Si es la pestaña de configuración API, cargar el token INMEDIATAMENTE
         if (tabId === 'api-config') {
-            console.log('🔧 Cambiando a pestaña de configuración API, cargando token...');
-            // Dar un pequeño delay para asegurar que el DOM esté listo
+            console.log('🔧🔧🔧 PESTAÑA API-CONFIG ACTIVADA - CARGANDO TOKEN 🔧🔧🔧');
+            // Cargar inmediatamente y también después de un pequeño delay
+            this.loadApiToken();
             setTimeout(() => {
                 this.loadApiToken();
-            }, 200);
+            }, 300);
         }
     }
 
@@ -776,87 +777,129 @@ class ChatbotDashboard {
     }
 
     async loadApiToken() {
-        console.log('🚀🚀🚀 CARGANDO TOKEN API DESDE NEON 🚀🚀🚀');
+        console.log('🚀🚀🚀 INICIANDO CARGA DE TOKEN API DESDE NEON 🚀🚀🚀');
         
         const tokenInput = document.getElementById('apiToken');
         if (!tokenInput) {
-            console.warn('⚠️ Input no encontrado, reintentando...');
+            console.warn('⚠️ Input #apiToken no encontrado, reintentando en 300ms...');
             setTimeout(() => this.loadApiToken(), 300);
             return;
         }
 
         try {
-            // 1. OBTENER EMAIL
+            // PASO 1: OBTENER EMAIL DEL USUARIO
             let userEmail = null;
             
-            if (window.authService && window.authService.getCurrentUser) {
-                const user = window.authService.getCurrentUser();
-                if (user && user.email) {
-                    userEmail = user.email;
-                    console.log('✅ Email desde authService:', userEmail);
+            // Intentar desde authService primero
+            if (window.authService && typeof window.authService.getCurrentUser === 'function') {
+                try {
+                    const user = window.authService.getCurrentUser();
+                    if (user && user.email) {
+                        userEmail = user.email;
+                        console.log('✅ Email obtenido de authService.getCurrentUser():', userEmail);
+                    }
+                } catch (e) {
+                    console.warn('⚠️ Error obteniendo email de authService:', e);
                 }
             }
             
+            // Si no se obtuvo, intentar desde el elemento del perfil
             if (!userEmail) {
                 const profileEmailEl = document.querySelector('#profileEmail');
-                if (profileEmailEl && profileEmailEl.textContent && profileEmailEl.textContent !== 'Cargando...') {
+                if (profileEmailEl && profileEmailEl.textContent && profileEmailEl.textContent.trim() !== 'Cargando...') {
                     userEmail = profileEmailEl.textContent.trim();
-                    console.log('✅ Email desde #profileEmail:', userEmail);
+                    console.log('✅ Email obtenido de #profileEmail:', userEmail);
+                }
+            }
+            
+            // Si aún no se tiene, intentar desde getCurrentUser
+            if (!userEmail) {
+                try {
+                    const currentUser = this.getCurrentUser();
+                    if (currentUser && currentUser.email) {
+                        userEmail = currentUser.email;
+                        console.log('✅ Email obtenido de getCurrentUser():', userEmail);
+                    }
+                } catch (e) {
+                    console.warn('⚠️ Error en getCurrentUser():', e);
                 }
             }
             
             if (!userEmail) {
-                const currentUser = this.getCurrentUser();
-                if (currentUser && currentUser.email) {
-                    userEmail = currentUser.email;
-                    console.log('✅ Email desde getCurrentUser:', userEmail);
-                }
-            }
-            
-            if (!userEmail) {
-                console.error('❌ NO SE PUDO OBTENER EL EMAIL');
+                console.error('❌ ERROR: No se pudo obtener el email del usuario');
+                console.error('Reintentando en 500ms...');
+                setTimeout(() => this.loadApiToken(), 500);
                 return;
             }
             
-            // 2. ESPERAR NEON SERVICE
+            console.log('📧 Email del usuario:', userEmail);
+            
+            // PASO 2: ESPERAR A QUE NEON SERVICE ESTÉ DISPONIBLE
             if (!window.neonService) {
-                console.log('⏳ Esperando neonService...');
+                console.log('⏳ Esperando a que neonService esté disponible...');
                 for (let i = 0; i < 50; i++) {
                     await new Promise(r => setTimeout(r, 100));
-                    if (window.neonService) break;
+                    if (window.neonService) {
+                        console.log('✅ neonService ahora está disponible');
+                        break;
+                    }
                 }
             }
             
             if (!window.neonService) {
-                console.error('❌ NeonService NO disponible');
+                console.error('❌ ERROR: neonService NO está disponible después de esperar');
                 return;
             }
             
-            // 3. CONSULTAR NEON
-            console.log('📞 Llamando getUserByEmail para:', userEmail);
+            // PASO 3: CONSULTAR NEON PARA OBTENER EL TOKEN
+            console.log('📞 Llamando window.neonService.getUserByEmail(' + userEmail + ')');
             const result = await window.neonService.getUserByEmail(userEmail);
-            console.log('📦 Resultado:', result);
+            
+            console.log('📦 RESULTADO COMPLETO de getUserByEmail:', result);
+            console.log('📦 result.success:', result?.success);
+            console.log('📦 result.user:', result?.user ? 'EXISTE' : 'NO EXISTE');
+            console.log('📦 result.user.token_api:', result?.user?.token_api ? 'EXISTE' : 'NO EXISTE');
             
             if (result && result.success && result.user) {
                 const token = result.user.token_api;
-                console.log('🔑 Token encontrado:', token ? 'SÍ' : 'NO');
-                console.log('🔑 Valor del token:', token ? token.substring(0, 30) + '...' : 'null/undefined/vacío');
+                
+                if (token) {
+                    console.log('🔑 Token encontrado en result.user.token_api');
+                    console.log('🔑 Tipo:', typeof token);
+                    console.log('🔑 Longitud:', token.length);
+                    console.log('🔑 Primeros 30 caracteres:', token.substring(0, 30) + '...');
+                } else {
+                    console.warn('⚠️ result.user.token_api es:', token);
+                }
                 
                 if (token && typeof token === 'string' && token.trim() !== '') {
+                    // CARGAR EL TOKEN EN EL INPUT
                     tokenInput.value = token;
-                    console.log('✅✅✅ TOKEN CARGADO EN EL INPUT ✅✅✅');
+                    console.log('✅✅✅✅✅ TOKEN CARGADO EN EL INPUT #apiToken ✅✅✅✅✅');
+                    console.log('✅ Valor del input ahora:', tokenInput.value.substring(0, 30) + '...');
+                    
+                    // También guardar en localStorage
                     localStorage.setItem('gptmaker_token', token);
+                    localStorage.setItem('apiToken', token);
+                    console.log('✅ Token guardado en localStorage');
+                    
                     return;
                 } else {
-                    console.log('⚠️ Token existe pero está vacío o inválido');
+                    console.warn('⚠️ El token existe pero está vacío o no es válido');
+                    console.warn('⚠️ Token value:', token);
+                    console.warn('⚠️ Tipo:', typeof token);
                     tokenInput.value = '';
                 }
             } else {
-                console.error('❌ Error obteniendo usuario:', result?.error);
+                console.error('❌ ERROR: No se pudo obtener el usuario de Neon');
+                console.error('❌ result.success:', result?.success);
+                console.error('❌ result.error:', result?.error);
+                tokenInput.value = '';
             }
             
         } catch (error) {
-            console.error('❌ ERROR:', error);
+            console.error('❌ ERROR EXCEPCIÓN al cargar token:', error);
+            console.error('❌ Stack:', error.stack);
         }
     }
 
