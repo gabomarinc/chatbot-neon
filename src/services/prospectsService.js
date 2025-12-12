@@ -289,26 +289,42 @@ class ProspectsService {
 
             if (!messages || messages.length === 0) {
                 console.log('⚠️ No hay mensajes para analizar en el chat', chat.id);
-                // Solo crear prospecto si hay un nombre válido en el chat
+                // Usar chat.name de GPTMaker directamente (prioridad principal)
                 const chatName = chat.name || chat.userName || chat.whatsappPhone;
                 if (chatName && chatName !== 'Sin nombre' && chatName.trim().length > 0) {
+                    console.log(`✅ Usando nombre de GPTMaker (chat.name) para chat sin mensajes: "${chatName}"`);
                     return this.createProspectFromChatData(chat, [], chatName);
                 } else {
-                    console.log('⚠️ No hay nombre válido disponible, saltando este chat');
+                    console.log('⚠️ No hay nombre válido disponible en chat.name, saltando este chat');
                     return null; // No crear prospecto sin nombre válido
                 }
             }
 
-            // Extraer nombre
-            let nombre = this.extractNameFromMessages(messages);
-            if (!nombre) {
-                nombre = chat.name || chat.userName || chat.whatsappPhone || 'Sin nombre'; // Usar nombre del chat como fallback
-                console.log(`⚠️ No se pudo extraer nombre de mensajes, usando datos del chat como fallback: "${nombre}"`);
-                // Si el nombre sigue siendo "Sin nombre" o vacío, no crear prospecto
-                if (nombre === 'Sin nombre' || nombre.trim().length === 0) {
-                    console.log('⚠️ Nombre de prospecto inválido, saltando este chat.');
-                    return null;
+            // Extraer nombre - PRIORIDAD: chat.name de GPTMaker primero
+            let nombre = null;
+            
+            // PRIORIDAD 1: Usar chat.name directamente de GPTMaker (más confiable)
+            if (chat.name && chat.name.trim() !== '' && chat.name !== 'Sin nombre') {
+                nombre = chat.name.trim();
+                console.log(`✅ Usando nombre de GPTMaker (chat.name): "${nombre}"`);
+            } else {
+                // PRIORIDAD 2: Intentar extraer de mensajes si chat.name no está disponible
+                nombre = this.extractNameFromMessages(messages);
+                if (nombre) {
+                    console.log(`✅ Nombre extraído de mensajes: "${nombre}"`);
+                } else {
+                    // PRIORIDAD 3: Usar userName o whatsappPhone como último recurso
+                    nombre = chat.userName || chat.whatsappPhone || null;
+                    if (nombre) {
+                        console.log(`⚠️ Usando userName/whatsappPhone como fallback: "${nombre}"`);
+                    }
                 }
+            }
+            
+            // Validar que tenemos un nombre válido
+            if (!nombre || nombre.trim() === '' || nombre === 'Sin nombre') {
+                console.log('⚠️ No se pudo obtener un nombre válido para el prospecto, saltando este chat.');
+                return null;
             }
 
             // Extraer imágenes
@@ -355,7 +371,9 @@ class ProspectsService {
      */
     createProspectFromChatData(chat, messages = [], nombreFallback = null) {
         try {
+            // PRIORIDAD: nombreFallback > chat.name (GPTMaker) > userName > whatsappPhone
             const nombre = nombreFallback || chat.name || chat.userName || chat.whatsappPhone || 'Sin nombre';
+            console.log(`📝 Creando prospecto con nombre: "${nombre}" (fuente: ${nombreFallback ? 'fallback' : chat.name ? 'GPTMaker chat.name' : chat.userName ? 'userName' : 'whatsappPhone'})`);
             
             // Si el nombre es "Sin nombre" o vacío, no crear prospecto
             if (nombre === 'Sin nombre' || nombre.trim().length === 0) {

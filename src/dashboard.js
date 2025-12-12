@@ -203,8 +203,8 @@ class ChatbotDashboard {
                 if (window.GPTMAKER_CONFIG) {
                     window.GPTMAKER_CONFIG.token = token;
                         console.log('✅ Token configurado en GPTMAKER_CONFIG');
-                    }
-                    
+                }
+                
                     // IMPORTANTE: También cargar en el input de la pestaña API Config si existe
                     const tokenInput = document.getElementById('apiToken');
                     if (tokenInput) {
@@ -975,7 +975,7 @@ class ChatbotDashboard {
                     // CARGAR EL TOKEN EN EL INPUT (SOLO el token del usuario actual)
                     tokenInput.value = token;
                     console.log('✅✅✅ TOKEN CARGADO EN EL INPUT #apiToken ✅✅✅');
-                    
+            
                     // También guardar en localStorage (para uso de la API)
                     localStorage.setItem('gptmaker_token', token);
                     localStorage.setItem('apiToken', token);
