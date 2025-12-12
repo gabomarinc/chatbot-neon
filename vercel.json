@@ -10,8 +10,16 @@
       "destination": "/api/stripe/:path*"
     },
     {
-      "source": "/api/neon/:path*",
-      "destination": "/api/neon/:path*"
+      "source": "/api/neon/users/:path*",
+      "destination": "/api/neon/users.js"
+    },
+    {
+      "source": "/api/neon/prospectos/:path*",
+      "destination": "/api/neon/prospectos.js"
+    },
+    {
+      "source": "/api/neon/workspaces/:path*",
+      "destination": "/api/neon/workspaces.js"
     },
     {
       "source": "/api/:path*",
