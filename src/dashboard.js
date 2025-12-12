@@ -67,16 +67,34 @@ class ChatbotDashboard {
         try {
             this.setupEventListeners();
             
-            // PRIMERO: Cargar token desde Neon ANTES de inicializar la API
-            console.log('🔄 Paso 1: Cargando token API desde Neon...');
-            try {
-                await this.loadTokenFromNeon();
-                console.log('✅ Token cargado desde Neon, ahora inicializando API...');
-            } catch (tokenError) {
-                console.warn('⚠️ No se pudo cargar token desde Neon, continuando con token de localStorage:', tokenError.message);
+            // PRIMERO: Esperar a que NeonService esté disponible
+            console.log('🔄 Paso 0: Esperando a que NeonService esté disponible...');
+            let neonServiceAttempts = 0;
+            while (!window.neonService && neonServiceAttempts < 50) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                neonServiceAttempts++;
             }
             
-            // SEGUNDO: Inicializar API (ahora con el token cargado)
+            if (window.neonService) {
+                console.log('✅ NeonService disponible después de', neonServiceAttempts * 100, 'ms');
+            } else {
+                console.warn('⚠️ NeonService no disponible después de esperar, continuando sin él');
+            }
+            
+            // SEGUNDO: Cargar token desde Neon ANTES de inicializar la API
+            console.log('🔄 Paso 1: Cargando token API desde Neon...');
+            try {
+                const token = await this.loadTokenFromNeon();
+                if (token) {
+                    console.log('✅ Token cargado desde Neon, ahora inicializando API...');
+                } else {
+                    console.warn('⚠️ No se pudo cargar token desde Neon, usando token de localStorage si existe');
+                }
+            } catch (tokenError) {
+                console.warn('⚠️ Error cargando token desde Neon, continuando con token de localStorage:', tokenError.message);
+            }
+            
+            // TERCERO: Inicializar API (ahora con el token cargado o sin él)
             this.initializeAPI();
             
             // TERCERO: Cargar datos con el token configurado
@@ -7085,15 +7103,36 @@ class ChatbotDashboard {
                 }
             }
         } catch (error) {
-            console.error('❌ Error cargando prospectos:', error);
+            // Manejar errores de forma más silenciosa
+            const errorMessage = error.message || error.toString();
+            
+            // Si el error es que NeonService no está disponible, esperar y reintentar
+            if (errorMessage.includes('NeonService no disponible')) {
+                console.warn('⚠️ NeonService no disponible para cargar prospectos, reintentando en 1 segundo...');
+                setTimeout(() => {
+                    if (window.neonService && window.prospectsService) {
+                        this.loadProspects();
+                    } else {
+                        console.warn('⚠️ NeonService aún no disponible, inicializando lista vacía');
+                        this.allProspects = [];
+                        this.applyProspectsFilters();
+                    }
+                }, 1000);
+                return;
+            }
+            
+            console.warn('⚠️ Error cargando prospectos (continuando sin datos):', errorMessage);
             // Si el error es que no hay datos, mostrar mensaje informativo
-            if (error.message.includes('no encontrado') || error.message.includes('vací') || error.message.includes('empty') || error.message.includes('404')) {
+            if (errorMessage.includes('no encontrado') || errorMessage.includes('vací') || errorMessage.includes('empty') || errorMessage.includes('404')) {
                 this.showNotification('Para extraer los prospectos, ve a Prospectos y dale a Extraer', 'info');
                 // Inicializar con lista vacía
                 this.allProspects = [];
                 this.applyProspectsFilters();
             } else {
-                this.showNotification('Error al cargar los prospectos', 'error');
+                // No mostrar error crítico, solo warning
+                console.warn('⚠️ No se pudieron cargar prospectos, continuando sin datos');
+                this.allProspects = [];
+                this.applyProspectsFilters();
             }
         }
     }
