@@ -17,98 +17,34 @@ module.exports = async (req, res) => {
 
     try {
         // Parsear la URL para determinar la ruta
-        // En Vercel, req.url contiene la ruta completa después del dominio
-        const url = req.url || req.path || '';
-        console.log('🔍 URL completa recibida:', url);
-        console.log('🔍 Query params:', req.query);
-        console.log('🔍 Method:', req.method);
-        
-        // Remover query string si existe
-        const urlWithoutQuery = url.split('?')[0];
-        // Filtrar partes vacías y partes conocidas del path base
-        const urlParts = urlWithoutQuery.split('/').filter(p => p && p !== 'api' && p !== 'neon' && p !== 'users');
-        
-        console.log('🔍 URL parts después de filtrar:', urlParts);
+        const url = req.url || '';
+        const urlParts = url.split('/').filter(p => p);
         
         // Determinar el tipo de operación basado en la URL
-        const isEmailRoute = urlParts.includes('email') || urlParts[0] === 'email' || url.includes('/email/');
-        const isPasswordRoute = urlParts.includes('password') || url.includes('/password');
-        const isLastLoginRoute = urlParts.includes('last-login') || url.includes('/last-login');
-        const hasUserId = urlParts.length > 0 && !isEmailRoute && !isPasswordRoute && !isLastLoginRoute && urlParts[0] !== 'email';
-        
-        console.log('🔍 Detección de ruta:', {
-            isEmailRoute,
-            isPasswordRoute,
-            isLastLoginRoute,
-            hasUserId,
-            urlParts
-        });
+        const isEmailRoute = urlParts.includes('email');
+        const isPasswordRoute = urlParts.includes('password');
+        const isLastLoginRoute = urlParts.includes('last-login');
+        const hasUserId = urlParts.length > 1 && !isEmailRoute;
 
         // Ruta: /api/neon/users/email/[email]
         if (isEmailRoute) {
-            let email = null;
-            
-            // Intentar obtener de diferentes formas
-            // 1. De urlParts si email está en la posición correcta
             const emailIndex = urlParts.indexOf('email');
-            if (emailIndex !== -1 && urlParts[emailIndex + 1]) {
-                email = decodeURIComponent(urlParts[emailIndex + 1]);
-            }
-            // 2. De query params
-            else if (req.query.email) {
-                email = req.query.email;
-            }
-            // 3. Intentar extraer de la URL completa con regex
-            else {
-                const emailMatch = url.match(/email[\/]?([^\/\?&]+)/i);
-                if (emailMatch && emailMatch[1]) {
-                    email = decodeURIComponent(emailMatch[1]);
-                }
-            }
-            // 4. Si aún no tenemos email, intentar desde cualquier parte de urlParts
-            if (!email && urlParts.length > 0) {
-                // Buscar cualquier parte que parezca un email
-                for (const part of urlParts) {
-                    if (part.includes('@')) {
-                        email = decodeURIComponent(part);
-                        break;
-                    }
-                }
-            }
-
-            console.log('📧 Email extraído:', email);
-            console.log('📧 URL original:', url);
-            console.log('📧 URL parts:', urlParts);
+            const email = emailIndex !== -1 && urlParts[emailIndex + 1] 
+                ? decodeURIComponent(urlParts[emailIndex + 1]) 
+                : req.query.email;
 
             if (!email) {
-                console.error('❌ No se pudo extraer el email de la URL');
-                return res.status(400).json({ 
-                    success: false, 
-                    error: 'Email es requerido',
-                    debug: { url, urlParts, query: req.query }
-                });
+                return res.status(400).json({ success: false, error: 'Email es requerido' });
             }
 
             if (req.method === 'GET') {
-                console.log('🔍 Buscando usuario en BD con email:', email);
-                try {
-                    const query = 'SELECT * FROM users WHERE email = $1 LIMIT 1';
-                    const result = await executeQuery(query, [email]);
-                    
-                    console.log('📊 Resultado de BD:', result ? `${result.length} registros encontrados` : 'null');
-                    if (result && result.length > 0) {
-                        console.log('✅ Usuario encontrado:', { id: result[0].id, email: result[0].email });
-                        return res.status(200).json(result[0]);
-                    } else {
-                        console.log('⚠️ Usuario no encontrado en BD para email:', email);
-                        return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
-                    }
-                } catch (dbError) {
-                    console.error('❌ Error en consulta a BD:', dbError);
-                    return res.status(500).json({ 
-                        success: false, 
-                        error: 'Error de base de datos: ' + dbError.message 
-                    });
+                const query = 'SELECT * FROM users WHERE email = $1 LIMIT 1';
+                const result = await executeQuery(query, [email]);
+                
+                if (result && result.length > 0) {
+                    return res.status(200).json(result[0]);
+                } else {
+                    return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
                 }
             }
         }
