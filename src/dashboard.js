@@ -672,35 +672,57 @@ class ChatbotDashboard {
         console.log('📥 Cargando token de API guardado...');
         
         const tokenInput = document.getElementById('apiToken');
-        if (!tokenInput) return;
+        if (!tokenInput) {
+            console.warn('⚠️ No se encontró el input de token');
+            return;
+        }
 
         try {
-            // 1. Try to load from Airtable first (fuente de verdad principal)
+            // 1. SIEMPRE intentar cargar desde Neon primero (fuente de verdad)
             const currentUser = this.getCurrentUser();
-            if (currentUser && window.neonService && window.authService && window.authService.useNeon) {
-                console.log('🗄️ Cargando token desde Neon...');
-                
-                const userResult = await window.neonService.getUserByEmail(currentUser.email);
-                
-                if (userResult.success && userResult.user && userResult.user.token_api) {
-                    const token = userResult.user.token_api;
-                    tokenInput.value = token;
-                    
-                    // Sincronizar con localStorage para consistencia
-                    localStorage.setItem('gptmaker_token', token);
-                    localStorage.setItem('apiToken', token);
-                    
-                    // Actualizar configuración global
-                    if (window.GPTMAKER_CONFIG) {
-                        window.GPTMAKER_CONFIG.token = token;
-                    }
-                    if (window.gptmakerConfig) {
-                        window.gptmakerConfig.setToken(token);
-                    }
-                    
-                    console.log('✅ Token de API cargado desde Neon y sincronizado');
-                    return;
+            if (currentUser && currentUser.email) {
+                // Esperar a que neonService esté disponible (con timeout)
+                let attempts = 0;
+                while (!window.neonService && attempts < 10) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    attempts++;
                 }
+                
+                if (window.neonService && window.authService && window.authService.useNeon) {
+                    console.log('🗄️ Cargando token desde Neon (campo token_api)...');
+                    
+                    const userResult = await window.neonService.getUserByEmail(currentUser.email);
+                    
+                    if (userResult.success && userResult.user) {
+                        if (userResult.user.token_api) {
+                            const token = userResult.user.token_api;
+                            tokenInput.value = token;
+                            
+                            // Sincronizar con localStorage para consistencia
+                            localStorage.setItem('gptmaker_token', token);
+                            localStorage.setItem('apiToken', token);
+                            
+                            // Actualizar configuración global
+                            if (window.GPTMAKER_CONFIG) {
+                                window.GPTMAKER_CONFIG.token = token;
+                            }
+                            if (window.gptmakerConfig) {
+                                window.gptmakerConfig.setToken(token);
+                            }
+                            
+                            console.log('✅ Token de API cargado desde Neon (token_api) y sincronizado');
+                            return;
+                        } else {
+                            console.log('ℹ️ Usuario encontrado en Neon pero no tiene token_api configurado');
+                        }
+                    } else {
+                        console.warn('⚠️ No se pudo obtener usuario de Neon:', userResult.error || 'Error desconocido');
+                    }
+                } else {
+                    console.warn('⚠️ NeonService o AuthService no disponible aún');
+                }
+            } else {
+                console.warn('⚠️ No hay usuario autenticado disponible');
             }
             
             // 2. Fallback: buscar en localStorage (gptmaker_token tiene prioridad)
@@ -719,7 +741,7 @@ class ChatbotDashboard {
                 localStorage.setItem('gptmaker_token', apiToken);
                 console.log('✅ Token de API cargado desde localStorage (apiToken) y migrado');
             } else {
-                console.log('ℹ️ No se encontró token de API guardado');
+                console.log('ℹ️ No se encontró token de API guardado en localStorage ni en Neon');
             }
             
         } catch (error) {
