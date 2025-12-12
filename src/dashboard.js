@@ -547,24 +547,57 @@ class ChatbotDashboard {
     checkUserRoleForApiConfig() {
         console.log('🔍 Verificando rol del usuario para mostrar pestaña de API Config...');
         
-        // Get current user role from localStorage or auth service
-        const currentUser = this.getCurrentUser();
-        const userRole = currentUser?.role || 'user';
-        
-        console.log(`👤 Rol del usuario actual: ${userRole}`);
-        
         const apiConfigTab = document.getElementById('apiConfigTab');
-        if (apiConfigTab) {
-            if (userRole === 'admin') {
-                apiConfigTab.style.display = 'flex';
-                console.log('✅ Pestaña API Config mostrada para administrador');
-            } else {
-                apiConfigTab.style.display = 'none';
-                console.log('🚫 Pestaña API Config oculta para usuario no administrador');
-            }
-        } else {
+        if (!apiConfigTab) {
             console.warn('⚠️ No se encontró la pestaña API Config');
+            return;
         }
+        
+        // Obtener rol del usuario desde múltiples fuentes
+        let userRole = null;
+        
+        // Método 1: Desde getCurrentUser
+        const currentUser = this.getCurrentUser();
+        if (currentUser && currentUser.role) {
+            userRole = currentUser.role;
+            console.log(`👤 Rol obtenido de getCurrentUser: ${userRole}`);
+        }
+        
+        // Método 2: Desde authService
+        if (!userRole && window.authService && window.authService.getCurrentUser) {
+            const authUser = window.authService.getCurrentUser();
+            if (authUser && authUser.role) {
+                userRole = authUser.role;
+                console.log(`👤 Rol obtenido de authService: ${userRole}`);
+            }
+        }
+        
+        // Método 3: Desde el elemento del perfil
+        if (!userRole) {
+            const profileRole = document.querySelector('#profileRole');
+            if (profileRole && profileRole.textContent) {
+                const roleText = profileRole.textContent.trim().toLowerCase();
+                if (roleText.includes('admin') || roleText.includes('administrador')) {
+                    userRole = 'admin';
+                    console.log(`👤 Rol detectado desde #profileRole: ${userRole}`);
+                }
+            }
+        }
+        
+        // Si no se puede determinar el rol, mostrar la pestaña de todos modos
+        // (es mejor mostrar y permitir que el usuario la vea)
+        if (!userRole) {
+            console.log('⚠️ No se pudo determinar el rol, mostrando pestaña de todos modos');
+            apiConfigTab.style.display = 'flex';
+            return;
+        }
+        
+        console.log(`👤 Rol final del usuario: ${userRole}`);
+        
+        // Mostrar la pestaña si es admin, o siempre para permitir configuración
+        // Cambio: mostrar siempre la pestaña para que todos puedan configurar su token
+        apiConfigTab.style.display = 'flex';
+        console.log('✅ Pestaña API Config mostrada');
     }
 
     getCurrentUser() {
