@@ -184,6 +184,22 @@ class ChatbotDashboard {
                         console.log('✅ Token configurado en GPTMAKER_CONFIG');
                     }
                     
+                    // IMPORTANTE: También cargar en el input de la pestaña API Config si existe
+                    const tokenInput = document.getElementById('apiToken');
+                    if (tokenInput) {
+                        tokenInput.value = token;
+                        console.log('✅ Token cargado en input #apiToken desde loadTokenFromNeon');
+                    } else {
+                        // Si el input no existe aún, intentar cargarlo después
+                        setTimeout(() => {
+                            const delayedInput = document.getElementById('apiToken');
+                            if (delayedInput) {
+                                delayedInput.value = token;
+                                console.log('✅ Token cargado en input #apiToken (retardado)');
+                            }
+                        }, 1000);
+                    }
+                    
                     console.log('✅✅✅ TOKEN API CARGADO DESDE NEON Y CONFIGURADO ✅✅✅');
                     return token; // Retornar el token para uso posterior
                 } else {
