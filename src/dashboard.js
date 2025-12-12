@@ -648,14 +648,38 @@ class ChatbotDashboard {
         
         const form = document.getElementById('apiConfigForm');
         const toggleBtn = document.getElementById('toggleTokenVisibility');
+        const apiConfigTab = document.getElementById('api-config');
         
         if (!form) {
             console.warn('⚠️ No se encontró el formulario de API Config');
             return;
         }
 
-        // NO cargar el token aquí - se cargará cuando se abra la pestaña
-        // this.loadApiToken(); // Removido - se carga en switchProfileTab
+        // Observar cuando el tab se hace visible para cargar el token
+        if (apiConfigTab) {
+            const observer = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                        const isActive = apiConfigTab.classList.contains('active');
+                        if (isActive) {
+                            console.log('👁️ Tab api-config ahora está visible, cargando token...');
+                            setTimeout(() => this.loadApiToken(), 100);
+                        }
+                    }
+                });
+            });
+            
+            observer.observe(apiConfigTab, {
+                attributes: true,
+                attributeFilter: ['class']
+            });
+            
+            // También cargar si ya está activo al inicializar
+            if (apiConfigTab.classList.contains('active')) {
+                console.log('👁️ Tab api-config ya está activo al inicializar, cargando token...');
+                setTimeout(() => this.loadApiToken(), 100);
+            }
+        }
 
         // Toggle token visibility with password protection
         if (toggleBtn) {
@@ -672,123 +696,87 @@ class ChatbotDashboard {
     }
 
     async loadApiToken() {
-        console.log('📥 INICIANDO carga de token de API desde Neon...');
+        console.log('🚀🚀🚀 CARGANDO TOKEN API DESDE NEON 🚀🚀🚀');
         
         const tokenInput = document.getElementById('apiToken');
         if (!tokenInput) {
-            console.warn('⚠️ No se encontró el input de token, reintentando en 200ms...');
-            setTimeout(() => this.loadApiToken(), 200);
+            console.warn('⚠️ Input no encontrado, reintentando...');
+            setTimeout(() => this.loadApiToken(), 300);
             return;
         }
 
         try {
-            // Obtener email del usuario - intentar múltiples formas
+            // 1. OBTENER EMAIL
             let userEmail = null;
             
-            // Método 1: Desde getCurrentUser
-            const currentUser = this.getCurrentUser();
-            if (currentUser && currentUser.email) {
-                userEmail = currentUser.email;
-                console.log('✅ Email obtenido de getCurrentUser():', userEmail);
-            } else {
-                // Método 2: Desde el elemento del perfil
-                const profileEmail = document.querySelector('#profileEmail');
-                if (profileEmail && profileEmail.textContent && profileEmail.textContent.trim() !== 'Cargando...') {
-                    userEmail = profileEmail.textContent.trim();
-                    console.log('✅ Email obtenido del elemento #profileEmail:', userEmail);
-                } else {
-                    // Método 3: Desde authService
-                    if (window.authService && window.authService.getCurrentUser) {
-                        const authUser = window.authService.getCurrentUser();
-                        if (authUser && authUser.email) {
-                            userEmail = authUser.email;
-                            console.log('✅ Email obtenido de authService:', userEmail);
-                        }
-                    }
+            if (window.authService && window.authService.getCurrentUser) {
+                const user = window.authService.getCurrentUser();
+                if (user && user.email) {
+                    userEmail = user.email;
+                    console.log('✅ Email desde authService:', userEmail);
                 }
             }
             
             if (!userEmail) {
-                console.error('❌ No se pudo obtener el email del usuario. Reintentando en 500ms...');
-                setTimeout(() => this.loadApiToken(), 500);
+                const profileEmailEl = document.querySelector('#profileEmail');
+                if (profileEmailEl && profileEmailEl.textContent && profileEmailEl.textContent !== 'Cargando...') {
+                    userEmail = profileEmailEl.textContent.trim();
+                    console.log('✅ Email desde #profileEmail:', userEmail);
+                }
+            }
+            
+            if (!userEmail) {
+                const currentUser = this.getCurrentUser();
+                if (currentUser && currentUser.email) {
+                    userEmail = currentUser.email;
+                    console.log('✅ Email desde getCurrentUser:', userEmail);
+                }
+            }
+            
+            if (!userEmail) {
+                console.error('❌ NO SE PUDO OBTENER EL EMAIL');
                 return;
             }
             
-            console.log('📧 Email del usuario:', userEmail);
-            
-            // Esperar a que neonService esté disponible
-            let attempts = 0;
-            while (!window.neonService && attempts < 30) {
-                await new Promise(resolve => setTimeout(resolve, 100));
-                attempts++;
+            // 2. ESPERAR NEON SERVICE
+            if (!window.neonService) {
+                console.log('⏳ Esperando neonService...');
+                for (let i = 0; i < 50; i++) {
+                    await new Promise(r => setTimeout(r, 100));
+                    if (window.neonService) break;
+                }
             }
             
             if (!window.neonService) {
-                console.error('❌ NeonService no está disponible después de esperar');
-                tokenInput.value = '';
+                console.error('❌ NeonService NO disponible');
                 return;
             }
             
-            console.log('🗄️ Consultando Neon para obtener token_api del usuario:', userEmail);
+            // 3. CONSULTAR NEON
+            console.log('📞 Llamando getUserByEmail para:', userEmail);
+            const result = await window.neonService.getUserByEmail(userEmail);
+            console.log('📦 Resultado:', result);
             
-            // Consultar Neon directamente
-            const userResult = await window.neonService.getUserByEmail(userEmail);
-            console.log('📊 Respuesta completa de getUserByEmail:', JSON.stringify(userResult, null, 2));
-            
-            if (userResult && userResult.success && userResult.user) {
-                const token = userResult.user.token_api;
-                console.log('🔑 Token encontrado en user.token_api:', token ? `${token.substring(0, 20)}...` : 'VACÍO');
+            if (result && result.success && result.user) {
+                const token = result.user.token_api;
+                console.log('🔑 Token encontrado:', token ? 'SÍ' : 'NO');
+                console.log('🔑 Valor del token:', token ? token.substring(0, 30) + '...' : 'null/undefined/vacío');
                 
-                if (token && token.trim() && token.trim() !== '') {
-                    // CARGAR EL TOKEN EN EL INPUT
+                if (token && typeof token === 'string' && token.trim() !== '') {
                     tokenInput.value = token;
-                    console.log('✅✅✅ TOKEN CARGADO EN EL INPUT DESDE NEON ✅✅✅');
-                    
-                    // Sincronizar con localStorage
+                    console.log('✅✅✅ TOKEN CARGADO EN EL INPUT ✅✅✅');
                     localStorage.setItem('gptmaker_token', token);
-                    localStorage.setItem('apiToken', token);
-                    
-                    // Actualizar configuración global
-                    if (window.GPTMAKER_CONFIG) {
-                        window.GPTMAKER_CONFIG.token = token;
-                    }
-                    if (window.gptmakerConfig) {
-                        window.gptmakerConfig.setToken(token);
-                    }
-                    
-                    console.log('✅ Token sincronizado en localStorage y configuración global');
                     return;
                 } else {
-                    console.log('ℹ️ El usuario tiene registro en Neon pero el campo token_api está vacío');
+                    console.log('⚠️ Token existe pero está vacío o inválido');
                     tokenInput.value = '';
                 }
             } else {
-                console.warn('⚠️ No se pudo obtener usuario de Neon:', userResult?.error || 'Usuario no encontrado');
-                tokenInput.value = '';
-            }
-            
-            // Si llegamos aquí, no hay token en Neon - verificar localStorage como último recurso
-            const gptmakerToken = localStorage.getItem('gptmaker_token');
-            if (gptmakerToken) {
-                console.log('📦 Token encontrado en localStorage como fallback');
-                tokenInput.value = gptmakerToken;
-            } else {
-                console.log('ℹ️ No hay token en Neon ni en localStorage. El campo quedará vacío para que el usuario lo ingrese.');
-                tokenInput.value = '';
+                console.error('❌ Error obteniendo usuario:', result?.error);
             }
             
         } catch (error) {
-            console.error('❌ ERROR al cargar token de API:', error);
-            console.error('Stack:', error.stack);
-            
-            // Fallback a localStorage
-            const gptmakerToken = localStorage.getItem('gptmaker_token');
-            if (gptmakerToken && tokenInput) {
-                tokenInput.value = gptmakerToken;
-                console.log('✅ Token cargado desde localStorage como fallback por error');
-            } else {
-                tokenInput.value = '';
-            }
+            console.error('❌ ERROR:', error);
         }
     }
 
@@ -7714,4 +7702,5 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     console.log('✅ Función showTeamModal expuesta globalmente en window');
+});
 });
