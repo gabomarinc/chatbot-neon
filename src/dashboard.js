@@ -1426,6 +1426,8 @@ class ChatbotDashboard {
     }
 
     navigateToSection(section) {
+        console.log('🧭 Navegando a sección:', section);
+        
         // Update navigation
         document.querySelectorAll('.nav-item').forEach(item => {
             item.classList.remove('active');
@@ -1435,16 +1437,24 @@ class ChatbotDashboard {
         const navItem = document.querySelector(`[data-section="${section}"]`);
         if (navItem) {
             navItem.classList.add('active');
+            console.log('✅ Nav item activado:', section);
+        } else {
+            console.warn('⚠️ No se encontró nav-item para sección:', section);
         }
 
-        // Update content
+        // Update content - IMPORTANTE: Ocultar TODAS las secciones primero
         document.querySelectorAll('.content-section').forEach(sec => {
             sec.classList.remove('active');
+            sec.style.display = 'none'; // Forzar ocultar
         });
         
         const targetSection = document.getElementById(section);
         if (targetSection) {
             targetSection.classList.add('active');
+            targetSection.style.display = 'block'; // Forzar mostrar
+            console.log('✅ Sección mostrada:', section);
+        } else {
+            console.error('❌ No se encontró la sección con ID:', section);
         }
 
         // Update page title
@@ -1470,10 +1480,15 @@ class ChatbotDashboard {
         this.closeMobileMenu();
 
         // Add animation
-        document.getElementById(section).classList.add('fade-in');
-        setTimeout(() => {
-            document.getElementById(section).classList.remove('fade-in');
-        }, 300);
+        const sectionEl = document.getElementById(section);
+        if (sectionEl) {
+            sectionEl.classList.add('fade-in');
+            setTimeout(() => {
+                sectionEl.classList.remove('fade-in');
+            }, 300);
+        }
+        
+        console.log('✅ Navegación completada a:', section);
     }
 
     toggleSidebar() {
