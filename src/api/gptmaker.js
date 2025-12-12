@@ -1413,14 +1413,6 @@ class GPTMakerAPI {
 
     // Métodos mock eliminados - ya no se usan datos mock
     // Si la API falla, se devuelve un error en lugar de datos falsos
-                agentName: 'Axel Aleman',
-                status: 'RUNNING',
-                startAt: new Date(Date.now() - 1800000).toISOString(),
-                resolvedAt: null,
-                transferAt: null
-            }
-        ];
-    }
 
     async getAgentIntentions(agentId, options = {}) {
         const cacheKey = `intentions-${agentId}`;
