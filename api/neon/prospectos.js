@@ -17,15 +17,36 @@ module.exports = async (req, res) => {
 
     try {
         // Parsear la URL
-        const url = req.url || '';
-        console.log('🔍 URL recibida en prospectos:', url);
-        const urlParts = url.split('/').filter(p => p);
-        console.log('🔍 URL parts:', urlParts);
+        // En Vercel, req.url puede venir con query params o sin ellos
+        let url = req.url || '';
+        
+        // Separar path de query params
+        const urlParts = url.split('?');
+        const path = urlParts[0];
+        const queryString = urlParts[1] || '';
+        
+        console.log('🔍 URL completa recibida:', url);
+        console.log('🔍 Path:', path);
+        console.log('🔍 Query string:', queryString);
         console.log('🔍 Método:', req.method);
         
-        const isBatchRoute = urlParts.includes('batch');
-        const isChatRoute = urlParts.includes('chat');
-        const hasId = urlParts.length > 0 && !isBatchRoute && !isChatRoute;
+        // Dividir el path en partes, filtrar vacíos
+        const pathParts = path.split('/').filter(p => p && p.trim());
+        console.log('🔍 Path parts:', pathParts);
+        
+        // Determinar qué ruta es
+        const isBatchRoute = pathParts.includes('batch');
+        const isChatRoute = pathParts.includes('chat');
+        
+        // hasId: solo si hay un ID válido (UUID) después de 'prospectos', y no es batch ni chat
+        // Por ejemplo: /api/neon/prospectos/[uuid] -> pathParts sería ['api', 'neon', 'prospectos', 'uuid']
+        // Necesitamos encontrar 'prospectos' y ver si hay algo después que no sea 'batch' ni 'chat'
+        const prospectosIndex = pathParts.indexOf('prospectos');
+        const hasId = prospectosIndex !== -1 && 
+                      pathParts.length > prospectosIndex + 1 && 
+                      !isBatchRoute && 
+                      !isChatRoute &&
+                      pathParts[prospectosIndex + 1].match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i); // UUID válido
 
         // Ruta: /api/neon/prospectos/batch
         if (isBatchRoute && req.method === 'POST') {
@@ -175,9 +196,9 @@ module.exports = async (req, res) => {
         // Ruta: /api/neon/prospectos/chat/[chatId]
         if (isChatRoute && req.method === 'GET') {
             console.log('🔍 Buscando prospecto por chat_id...');
-            const chatIdIndex = urlParts.indexOf('chat');
-            const chatId = chatIdIndex !== -1 && urlParts[chatIdIndex + 1] 
-                ? decodeURIComponent(urlParts[chatIdIndex + 1]) 
+            const chatIndex = pathParts.indexOf('chat');
+            const chatId = chatIndex !== -1 && pathParts[chatIndex + 1] 
+                ? decodeURIComponent(pathParts[chatIndex + 1]) 
                 : req.query.chatId;
 
             console.log('🔍 chatId extraído:', chatId);
@@ -206,10 +227,12 @@ module.exports = async (req, res) => {
 
         // Ruta: /api/neon/prospectos/[id] (GET, PATCH, DELETE)
         if (hasId) {
-            const id = urlParts[0] || req.query.id;
+            // El ID está en la posición después de 'prospectos'
+            const id = pathParts[prospectosIndex + 1] || req.query.id;
 
-            if (!id) {
-                return res.status(400).json({ success: false, error: 'id es requerido' });
+            if (!id || !id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+                console.error('❌ ID inválido:', id);
+                return res.status(400).json({ success: false, error: 'id es requerido y debe ser un UUID válido' });
             }
 
             if (req.method === 'GET') {
