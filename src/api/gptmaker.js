@@ -56,12 +56,14 @@ class GPTMakerAPI {
 
     async request(endpoint, options = {}) {
         // Verificar que tenemos token
-        if (!this.token) {
-            console.error('❌ No hay token configurado para GPTMaker API');
+        if (!this.token || typeof this.token !== 'string' || this.token.trim() === '') {
+            // No mostrar error crítico, solo warning - la app puede funcionar sin token
+            console.warn('⚠️ No hay token configurado para GPTMaker API - algunas funciones no estarán disponibles');
             return {
                 success: false,
                 error: 'No hay token configurado',
-                status: 401
+                status: 401,
+                data: null
             };
         }
 
@@ -1382,11 +1384,29 @@ class GPTMakerAPI {
     // Parse JWT token
     parseToken() {
         try {
-            const payload = this.token.split('.')[1];
+            // Verificar que el token existe y es válido antes de parsearlo
+            if (!this.token || typeof this.token !== 'string' || this.token.trim() === '') {
+                console.warn('⚠️ Token no disponible o inválido para parsear');
+                return null;
+            }
+            
+            // Verificar que el token tiene el formato JWT correcto (debe tener 3 partes separadas por puntos)
+            const parts = this.token.split('.');
+            if (parts.length !== 3) {
+                console.warn('⚠️ Token no tiene formato JWT válido (debe tener 3 partes)');
+                return null;
+            }
+            
+            const payload = parts[1];
+            if (!payload) {
+                console.warn('⚠️ Token no tiene payload válido');
+                return null;
+            }
+            
             const decoded = JSON.parse(atob(payload));
             return decoded;
         } catch (error) {
-            console.error('Error parsing token:', error);
+            console.warn('⚠️ Error parsing token (continuando sin parsear):', error.message);
             return null;
         }
     }

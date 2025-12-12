@@ -1,7 +1,21 @@
 // Servicio de Gestión de Prospectos
 class ProspectsService {
     constructor() {
-        this.neonService = window.neonService;
+        // Esperar a que NeonService esté disponible
+        if (!window.neonService) {
+            console.warn('⚠️ NeonService no disponible aún, esperando...');
+            // Intentar obtenerlo después de un delay
+            setTimeout(() => {
+                this.neonService = window.neonService;
+                if (this.neonService) {
+                    console.log('✅ NeonService ahora disponible');
+                } else {
+                    console.error('❌ NeonService aún no disponible después de esperar');
+                }
+            }, 500);
+        } else {
+            this.neonService = window.neonService;
+        }
         this.savingProspects = new Set(); // Para evitar condiciones de carrera
         console.log('👥 ProspectsService inicializado');
     }

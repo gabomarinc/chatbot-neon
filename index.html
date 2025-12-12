@@ -698,7 +698,8 @@
     </script>
     
     <!-- Servicios -->
-    <!-- AirtableService removido - ahora usamos NeonService -->
+    <!-- IMPORTANTE: NeonService debe cargarse ANTES que otros servicios que lo usan -->
+    <script src="src/services/neonService.js"></script>
     <script src="src/services/dataService.js"></script>
     <script src="src/services/notificationService.js"></script>
     <script src="src/services/pollingService.js"></script>
