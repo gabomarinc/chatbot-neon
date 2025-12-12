@@ -639,7 +639,7 @@ class ChatbotDashboard {
             // Dar un pequeño delay para asegurar que el DOM esté listo
             setTimeout(() => {
                 this.loadApiToken();
-            }, 100);
+            }, 200);
         }
     }
 
@@ -672,115 +672,122 @@ class ChatbotDashboard {
     }
 
     async loadApiToken() {
-        console.log('📥 Cargando token de API guardado...');
+        console.log('📥 INICIANDO carga de token de API desde Neon...');
         
         const tokenInput = document.getElementById('apiToken');
         if (!tokenInput) {
-            console.warn('⚠️ No se encontró el input de token, esperando...');
-            // Retry después de un delay
+            console.warn('⚠️ No se encontró el input de token, reintentando en 200ms...');
             setTimeout(() => this.loadApiToken(), 200);
             return;
         }
 
         try {
-            // 1. SIEMPRE intentar cargar desde Neon primero (fuente de verdad)
+            // Obtener email del usuario - intentar múltiples formas
+            let userEmail = null;
+            
+            // Método 1: Desde getCurrentUser
             const currentUser = this.getCurrentUser();
-            if (!currentUser || !currentUser.email) {
-                console.warn('⚠️ No hay usuario autenticado, intentando obtener email del perfil...');
-                const profileEmail = document.querySelector('#profileEmail');
-                if (profileEmail && profileEmail.textContent) {
-                    currentUser = { email: profileEmail.textContent.trim() };
-                    console.log('✅ Email obtenido del perfil:', currentUser.email);
-                } else {
-                    console.warn('⚠️ No se puede obtener el email del usuario');
-                }
-            }
-            
             if (currentUser && currentUser.email) {
-                // Esperar a que neonService esté disponible (con timeout)
-                let attempts = 0;
-                while (!window.neonService && attempts < 20) {
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                    attempts++;
-                }
-                
-                if (window.neonService) {
-                    const useNeon = window.authService?.useNeon !== false; // Default true si no existe
-                    
-                    if (useNeon) {
-                        console.log('🗄️ Cargando token desde Neon (campo token_api) para:', currentUser.email);
-                        
-                        const userResult = await window.neonService.getUserByEmail(currentUser.email);
-                        console.log('📊 Resultado de getUserByEmail:', userResult);
-                        
-                        if (userResult.success && userResult.user) {
-                            const token = userResult.user.token_api;
-                            if (token && token.trim()) {
-                                tokenInput.value = token;
-                                
-                                // Sincronizar con localStorage para consistencia
-                                localStorage.setItem('gptmaker_token', token);
-                                localStorage.setItem('apiToken', token);
-                                
-                                // Actualizar configuración global
-                                if (window.GPTMAKER_CONFIG) {
-                                    window.GPTMAKER_CONFIG.token = token;
-                                }
-                                if (window.gptmakerConfig) {
-                                    window.gptmakerConfig.setToken(token);
-                                }
-                                
-                                console.log('✅ Token de API cargado desde Neon (token_api) y sincronizado');
-                                return;
-                            } else {
-                                console.log('ℹ️ Usuario encontrado en Neon pero el campo token_api está vacío');
-                            }
-                        } else {
-                            console.warn('⚠️ No se pudo obtener usuario de Neon:', userResult.error || 'Error desconocido');
-                        }
-                    } else {
-                        console.log('ℹ️ Neon no está habilitado (useNeon = false)');
-                    }
+                userEmail = currentUser.email;
+                console.log('✅ Email obtenido de getCurrentUser():', userEmail);
+            } else {
+                // Método 2: Desde el elemento del perfil
+                const profileEmail = document.querySelector('#profileEmail');
+                if (profileEmail && profileEmail.textContent && profileEmail.textContent.trim() !== 'Cargando...') {
+                    userEmail = profileEmail.textContent.trim();
+                    console.log('✅ Email obtenido del elemento #profileEmail:', userEmail);
                 } else {
-                    console.warn('⚠️ NeonService no disponible después de esperar');
+                    // Método 3: Desde authService
+                    if (window.authService && window.authService.getCurrentUser) {
+                        const authUser = window.authService.getCurrentUser();
+                        if (authUser && authUser.email) {
+                            userEmail = authUser.email;
+                            console.log('✅ Email obtenido de authService:', userEmail);
+                        }
+                    }
                 }
             }
             
-            // 2. Fallback: buscar en localStorage (gptmaker_token tiene prioridad)
-            const gptmakerToken = localStorage.getItem('gptmaker_token');
-            if (gptmakerToken) {
-                tokenInput.value = gptmakerToken;
-                console.log('✅ Token de API cargado desde localStorage (gptmaker_token)');
+            if (!userEmail) {
+                console.error('❌ No se pudo obtener el email del usuario. Reintentando en 500ms...');
+                setTimeout(() => this.loadApiToken(), 500);
                 return;
             }
             
-            // 3. Fallback: buscar en localStorage con clave apiToken (compatibilidad)
-            const apiToken = localStorage.getItem('apiToken');
-            if (apiToken) {
-                tokenInput.value = apiToken;
-                // Migrar a gptmaker_token para consistencia
-                localStorage.setItem('gptmaker_token', apiToken);
-                console.log('✅ Token de API cargado desde localStorage (apiToken) y migrado');
+            console.log('📧 Email del usuario:', userEmail);
+            
+            // Esperar a que neonService esté disponible
+            let attempts = 0;
+            while (!window.neonService && attempts < 30) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                attempts++;
+            }
+            
+            if (!window.neonService) {
+                console.error('❌ NeonService no está disponible después de esperar');
+                tokenInput.value = '';
+                return;
+            }
+            
+            console.log('🗄️ Consultando Neon para obtener token_api del usuario:', userEmail);
+            
+            // Consultar Neon directamente
+            const userResult = await window.neonService.getUserByEmail(userEmail);
+            console.log('📊 Respuesta completa de getUserByEmail:', JSON.stringify(userResult, null, 2));
+            
+            if (userResult && userResult.success && userResult.user) {
+                const token = userResult.user.token_api;
+                console.log('🔑 Token encontrado en user.token_api:', token ? `${token.substring(0, 20)}...` : 'VACÍO');
+                
+                if (token && token.trim() && token.trim() !== '') {
+                    // CARGAR EL TOKEN EN EL INPUT
+                    tokenInput.value = token;
+                    console.log('✅✅✅ TOKEN CARGADO EN EL INPUT DESDE NEON ✅✅✅');
+                    
+                    // Sincronizar con localStorage
+                    localStorage.setItem('gptmaker_token', token);
+                    localStorage.setItem('apiToken', token);
+                    
+                    // Actualizar configuración global
+                    if (window.GPTMAKER_CONFIG) {
+                        window.GPTMAKER_CONFIG.token = token;
+                    }
+                    if (window.gptmakerConfig) {
+                        window.gptmakerConfig.setToken(token);
+                    }
+                    
+                    console.log('✅ Token sincronizado en localStorage y configuración global');
+                    return;
+                } else {
+                    console.log('ℹ️ El usuario tiene registro en Neon pero el campo token_api está vacío');
+                    tokenInput.value = '';
+                }
             } else {
-                console.log('ℹ️ No se encontró token de API guardado. El usuario debe ingresarlo manualmente.');
-                tokenInput.value = ''; // Asegurar que esté vacío si no hay token
+                console.warn('⚠️ No se pudo obtener usuario de Neon:', userResult?.error || 'Usuario no encontrado');
+                tokenInput.value = '';
+            }
+            
+            // Si llegamos aquí, no hay token en Neon - verificar localStorage como último recurso
+            const gptmakerToken = localStorage.getItem('gptmaker_token');
+            if (gptmakerToken) {
+                console.log('📦 Token encontrado en localStorage como fallback');
+                tokenInput.value = gptmakerToken;
+            } else {
+                console.log('ℹ️ No hay token en Neon ni en localStorage. El campo quedará vacío para que el usuario lo ingrese.');
+                tokenInput.value = '';
             }
             
         } catch (error) {
-            console.error('❌ Error al cargar token de API:', error);
+            console.error('❌ ERROR al cargar token de API:', error);
+            console.error('Stack:', error.stack);
             
-            // Fallback to localStorage en caso de error
+            // Fallback a localStorage
             const gptmakerToken = localStorage.getItem('gptmaker_token');
-            const apiToken = localStorage.getItem('apiToken');
-            
             if (gptmakerToken && tokenInput) {
                 tokenInput.value = gptmakerToken;
-                console.log('✅ Token de API cargado desde localStorage (gptmaker_token) - fallback');
-            } else if (apiToken && tokenInput) {
-                tokenInput.value = apiToken;
-                console.log('✅ Token de API cargado desde localStorage (apiToken) - fallback');
+                console.log('✅ Token cargado desde localStorage como fallback por error');
             } else {
-                tokenInput.value = ''; // Limpiar si hay error y no hay fallback
+                tokenInput.value = '';
             }
         }
     }
