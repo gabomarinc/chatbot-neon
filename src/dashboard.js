@@ -6788,14 +6788,36 @@ class ChatbotDashboard {
                 // Guardar todos los prospectos para filtrado
                 this.allProspects = uniqueProspects;
                 
+                // Si no hay prospectos, mostrar mensaje informativo
+                if (uniqueProspects.length === 0) {
+                    this.showNotification('Para extraer los prospectos, ve a Prospectos y dale a Extraer', 'info');
+                }
+                
                 // Aplicar filtros (si hay alguno activo) o mostrar todos
                 this.applyProspectsFilters();
             } else {
-                throw new Error(result.error || 'Error cargando prospectos');
+                // Si no hay datos pero no es un error crítico, mostrar mensaje informativo
+                if (result.error && (result.error.includes('no encontrado') || result.error.includes('vací') || result.error.includes('empty'))) {
+                    this.showNotification('Para extraer los prospectos, ve a Prospectos y dale a Extraer', 'info');
+                    // Inicializar con lista vacía
+                    this.allProspects = [];
+                    this.applyProspectsFilters();
+                } else {
+                    // Solo mostrar error si es un error real (conexión, etc.)
+                    throw new Error(result.error || 'Error cargando prospectos');
+                }
             }
         } catch (error) {
             console.error('❌ Error cargando prospectos:', error);
-            this.showNotification('Error al cargar los prospectos', 'error');
+            // Si el error es que no hay datos, mostrar mensaje informativo
+            if (error.message.includes('no encontrado') || error.message.includes('vací') || error.message.includes('empty') || error.message.includes('404')) {
+                this.showNotification('Para extraer los prospectos, ve a Prospectos y dale a Extraer', 'info');
+                // Inicializar con lista vacía
+                this.allProspects = [];
+                this.applyProspectsFilters();
+            } else {
+                this.showNotification('Error al cargar los prospectos', 'error');
+            }
         }
     }
 
