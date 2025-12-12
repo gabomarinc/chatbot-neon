@@ -434,12 +434,12 @@ class GPTMakerAPI {
         } catch (error) {
             console.error('❌ Error obteniendo chats de la API:', error.message);
             
-            // Fallback a datos mock
-            const mockChats = this.getMockChats();
+            // NO usar datos mock - devolver error para que el usuario vea que hay un problema
             return {
-                success: true,
-                data: mockChats,
-                source: 'mock'
+                success: false,
+                error: error.message || 'Error obteniendo chats de la API',
+                data: [],
+                source: 'error'
             };
         }
     }
@@ -493,14 +493,14 @@ class GPTMakerAPI {
         } catch (error) {
             console.error('❌ Error obteniendo todos los chats:', error.message);
             
-            // Fallback a datos mock
-            const mockChats = this.getMockChats();
+            // NO usar datos mock - devolver error para que el usuario vea que hay un problema
             return {
-                success: true,
-                data: mockChats,
-                source: 'mock',
-                totalPages: 1,
-                totalChats: mockChats.length
+                success: false,
+                error: error.message || 'Error obteniendo todos los chats',
+                data: [],
+                source: 'error',
+                totalPages: 0,
+                totalChats: 0
             };
         }
     }
@@ -1235,9 +1235,9 @@ class GPTMakerAPI {
                 result = await this.request(`/v2/users`);
             }
             
-            // Si ambos fallan, usar datos mock
+            // Si ambos fallan, devolver error
             if (!result.success) {
-                console.log('⚠️ No se pudieron obtener usuarios de la API, usando datos mock');
+                console.error('❌ No se pudieron obtener usuarios de la API');
                 throw new Error('No se pudieron obtener miembros del equipo');
             }
             
@@ -1251,12 +1251,12 @@ class GPTMakerAPI {
         } catch (error) {
             console.error('❌ Error obteniendo miembros del equipo:', error.message);
             
-            // Fallback a datos mock
-            const mockTeam = this.getMockTeam();
+            // NO usar datos mock - devolver error
             return {
-                success: true,
-                data: mockTeam,
-                source: 'mock'
+                success: false,
+                error: error.message || 'Error obteniendo miembros del equipo',
+                data: [],
+                source: 'error'
             };
         }
     }
@@ -1371,12 +1371,12 @@ class GPTMakerAPI {
         } catch (error) {
             console.error('❌ Error obteniendo interacciones de la API:', error.message);
             
-            // Fallback a datos mock
-            const mockInteractions = this.getMockInteractions();
+            // NO usar datos mock - devolver error
             return {
-                success: true,
-                data: mockInteractions,
-                source: 'mock'
+                success: false,
+                error: error.message || 'Error obteniendo interacciones',
+                data: [],
+                source: 'error'
             };
         }
     }
@@ -1411,106 +1411,8 @@ class GPTMakerAPI {
         }
     }
 
-    // Mock data methods
-    getMockChats() {
-        return [
-            {
-                id: 'chat-1',
-                user: '351963409216',
-                agent: 'Paulina',
-                lastMessage: 'Hola, ¿en qué puedo ayudarte?',
-                type: 'whatsapp',
-                timestamp: new Date().toISOString(),
-                messages: [
-                    { role: 'user', content: 'Hola', timestamp: new Date().toISOString() },
-                    { role: 'agent', content: 'Hola, ¿en qué puedo ayudarte?', timestamp: new Date().toISOString() }
-                ]
-            },
-            {
-                id: 'chat-2',
-                user: '50764392877',
-                agent: 'Paulina',
-                lastMessage: 'Gracias por contactarnos',
-                type: 'whatsapp',
-                timestamp: new Date(Date.now() - 3600000).toISOString(),
-                messages: [
-                    { role: 'user', content: 'Necesito información', timestamp: new Date().toISOString() },
-                    { role: 'agent', content: 'Gracias por contactarnos', timestamp: new Date().toISOString() }
-                ]
-            }
-        ];
-    }
-
-    getMockAgents() {
-        return [
-            {
-                id: 'agent-1',
-                name: 'Paulina',
-                behavior: 'Profesional y amigable',
-                avatar: null,
-                communicationType: 'NORMAL',
-                type: 'SUPPORT',
-                jobName: 'TechCorp Solutions',
-                jobSite: 'https://techcorp.com',
-                jobDescription: 'Asistente virtual especializada en atención al cliente y soporte técnico',
-                credits: 150
-            },
-            {
-                id: 'agent-2',
-                name: 'Axel Aleman',
-                behavior: 'Persuasivo y orientado a resultados',
-                avatar: null,
-                communicationType: 'FORMAL',
-                type: 'SALE',
-                jobName: 'SalesPro Inc',
-                jobSite: 'https://salespro.com',
-                jobDescription: 'Especialista en ventas, consultas técnicas y generación de leads',
-                credits: 89
-            }
-        ];
-    }
-
-
-    getMockTeam() {
-        return [
-            {
-                id: 'user-1',
-                name: 'María González',
-                role: 'Manager',
-                email: 'maria@empresa.com',
-                skills: ['Gestión', 'Liderazgo', 'Estrategia']
-            },
-            {
-                id: 'user-2',
-                name: 'Carlos Rodríguez',
-                role: 'Trainer',
-                email: 'carlos@empresa.com',
-                skills: ['Capacitación', 'IA', 'Tecnología']
-            },
-            {
-                id: 'user-3',
-                name: 'Ana Martínez',
-                role: 'Attendant',
-                email: 'ana@empresa.com',
-                skills: ['Atención', 'Comunicación', 'Soporte']
-            }
-        ];
-    }
-
-    getMockInteractions() {
-        return [
-            {
-                id: 'interaction-1',
-                chatName: 'María González',
-                agentName: 'Paulina',
-                status: 'RESOLVED',
-                startAt: new Date(Date.now() - 3600000).toISOString(),
-                resolvedAt: new Date().toISOString(),
-                transferAt: null
-            },
-            {
-                id: 'interaction-2',
-                chatName: 'Carlos Rodríguez',
+    // Métodos mock eliminados - ya no se usan datos mock
+    // Si la API falla, se devuelve un error en lugar de datos falsos
                 agentName: 'Axel Aleman',
                 status: 'RUNNING',
                 startAt: new Date(Date.now() - 1800000).toISOString(),
