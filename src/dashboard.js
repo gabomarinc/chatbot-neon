@@ -67,9 +67,17 @@ class ChatbotDashboard {
         try {
             this.setupEventListeners();
             this.initializeAPI();
-            // Cargar token desde Neon antes de cargar datos
-            await this.loadTokenFromNeon();
+            
+            // Cargar token desde Neon (no bloquear si falla)
+            try {
+                await this.loadTokenFromAirtable();
+            } catch (tokenError) {
+                console.warn('⚠️ No se pudo cargar token desde Neon, continuando con token de localStorage:', tokenError.message);
+            }
+            
+            // SIEMPRE cargar datos, incluso si el token falló
             await this.loadRealData();
+            
             this.loadTheme();
             this.loadBrandSettings();
             this.setupMobileMenu();
@@ -82,6 +90,13 @@ class ChatbotDashboard {
         } catch (error) {
             console.error('❌ Error en inicialización del dashboard:', error);
             // Asegurar que el dashboard se muestre incluso con errores
+            // Intentar cargar datos de todos modos
+            try {
+                await this.loadRealData();
+            } catch (dataError) {
+                console.error('❌ Error cargando datos:', dataError);
+            }
+            
             // Continuar con inicialización básica
             try {
                 this.loadTheme();
