@@ -5,6 +5,32 @@
 
 const { executeQuery } = require('../../lib/neon/db');
 
+/**
+ * Convierte fecha_ultimo_mensaje de timestamp en milisegundos a formato ISO string
+ * @param {number|string|null|undefined} fecha - Fecha en cualquier formato
+ * @returns {string|null} - Fecha en formato ISO string o null
+ */
+function convertirFechaUltimoMensaje(fecha) {
+    if (!fecha) return null;
+    
+    if (typeof fecha === 'number') {
+        // Es un timestamp en milisegundos, convertirlo a ISO string
+        return new Date(fecha).toISOString();
+    } else if (typeof fecha === 'string') {
+        // Si ya es string, verificar si es un número como string
+        const numValue = Number(fecha);
+        if (!isNaN(numValue) && fecha.trim().length > 10) {
+            // Es un número como string, probablemente timestamp en milisegundos
+            return new Date(numValue).toISOString();
+        } else {
+            // Ya es un string de fecha, usar tal cual
+            return fecha;
+        }
+    }
+    
+    return fecha;
+}
+
 module.exports = async (req, res) => {
     // Configurar CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -137,6 +163,9 @@ module.exports = async (req, res) => {
                         continue;
                     }
 
+                    // Convertir fecha_ultimo_mensaje a formato ISO string si es un número (timestamp en milisegundos)
+                    const fechaUltimoMensajeFormatted = convertirFechaUltimoMensaje(fecha_ultimo_mensaje);
+
                     const query = `
                         INSERT INTO prospectos (
                             nombre, chat_id, fecha_extraccion, user_email, workspace_id, user_id,
@@ -156,7 +185,7 @@ module.exports = async (req, res) => {
                         user_id || null,
                         telefono || null, 
                         canal || null, 
-                        fecha_ultimo_mensaje || null,
+                        fechaUltimoMensajeFormatted,
                         estado || 'Nuevo', 
                         imagenes_urls || null, 
                         documentos_urls || null,
@@ -264,6 +293,10 @@ module.exports = async (req, res) => {
                         } else if ((key === 'imagenes_urls' || key === 'documentos_urls') && Array.isArray(value)) {
                             fieldsToUpdate.push(`${key} = $${paramIndex++}`);
                             values.push(JSON.stringify(value));
+                        } else if (key === 'fecha_ultimo_mensaje') {
+                            // Convertir fecha_ultimo_mensaje si es necesario
+                            fieldsToUpdate.push(`${key} = $${paramIndex++}`);
+                            values.push(convertirFechaUltimoMensaje(value));
                         } else {
                             fieldsToUpdate.push(`${key} = $${paramIndex++}`);
                             values.push(value);
@@ -380,7 +413,7 @@ module.exports = async (req, res) => {
             const params = [
                 nombre, chat_id, fecha_extraccion || new Date().toISOString(),
                 user_email || null, workspace_id || null, user_id || null,
-                telefono || null, canal || null, fecha_ultimo_mensaje || null,
+                telefono || null, canal || null, convertirFechaUltimoMensaje(fecha_ultimo_mensaje),
                 estado || 'Nuevo', imagenes_urls || null, documentos_urls || null,
                 agente_id || null, notas || null, comentarios || null,
                 campos_solicitados ? (typeof campos_solicitados === 'string' ? campos_solicitados : JSON.stringify(campos_solicitados)) : null
