@@ -532,10 +532,54 @@ class NeonService {
                 console.warn('⚠️ No se pudo obtener información de usuario/workspace:', error);
             }
             
-            const records = prospectsData.map(prospectData => {
+            // Validar que todos los prospectos tengan los campos requeridos ANTES de procesar
+            const invalidProspects = [];
+            const validProspectsData = [];
+            
+            prospectsData.forEach((prospectData, index) => {
+                const nombre = prospectData.nombre || '';
+                const chatId = prospectData.chatId || '';
+                
+                if (!nombre || nombre.trim() === '' || !chatId || chatId.trim() === '') {
+                    console.error(`❌ Prospecto ${index + 1} inválido:`, {
+                        nombre: nombre || 'FALTA',
+                        chatId: chatId || 'FALTA',
+                        prospectData: prospectData
+                    });
+                    invalidProspects.push({ index, prospectData, reason: `nombre: ${nombre ? 'OK' : 'FALTA'}, chatId: ${chatId ? 'OK' : 'FALTA'}` });
+                } else {
+                    validProspectsData.push(prospectData);
+                }
+            });
+            
+            if (invalidProspects.length > 0) {
+                console.error(`❌ ${invalidProspects.length} prospectos inválidos encontrados, solo se procesarán ${validProspectsData.length} válidos`);
+            }
+            
+            if (validProspectsData.length === 0) {
+                return {
+                    success: false,
+                    created: [],
+                    errors: invalidProspects.map(inv => ({ prospect: inv.prospectData, error: `Campo requerido faltante: ${inv.reason}` })),
+                    total: prospectsData.length,
+                    createdCount: 0,
+                    errorCount: invalidProspects.length
+                };
+            }
+            
+            const records = validProspectsData.map((prospectData, index) => {
+                // Asegurarse de que nombre y chat_id no estén vacíos
+                const nombre = (prospectData.nombre || '').trim();
+                const chatId = (prospectData.chatId || '').trim();
+                
+                if (!nombre || !chatId) {
+                    console.error(`❌ Error interno: prospecto ${index + 1} sin nombre o chatId después de validación`);
+                    return null; // Se filtrará después
+                }
+                
                 const record = {
-                    nombre: prospectData.nombre || '',
-                    chat_id: prospectData.chatId || '',
+                    nombre: nombre,
+                    chat_id: chatId,
                     fecha_extraccion: prospectData.fechaExtraccion || new Date().toISOString(),
                     user_email: userEmail,
                     workspace_id: workspaceId,
@@ -564,7 +608,21 @@ class NeonService {
                 }
                 
                 return record;
-            });
+            }).filter(record => record !== null); // Filtrar registros nulos
+            
+            // Si después de filtrar no hay registros válidos, retornar error
+            if (records.length === 0) {
+                return {
+                    success: false,
+                    created: [],
+                    errors: invalidProspects.map(inv => ({ prospect: inv.prospectData, error: `Campo requerido faltante: ${inv.reason}` })),
+                    total: prospectsData.length,
+                    createdCount: 0,
+                    errorCount: prospectsData.length
+                };
+            }
+            
+            console.log(`✅ ${records.length} registros válidos preparados para batch (${invalidProspects.length} inválidos descartados)`);
             
             const response = await fetch(`${this.apiBase}/prospectos/batch`, {
                 method: 'POST',

@@ -264,12 +264,19 @@ module.exports = async (req, res) => {
             }
 
             try {
+                console.log('🔍 Ejecutando query:', query);
+                console.log('🔍 Parámetros:', params);
                 const prospectos = await executeQuery(query, params);
                 console.log(`✅ ${prospectos?.length || 0} prospectos obtenidos`);
                 return res.status(200).json({ success: true, prospectos: prospectos || [], total: prospectos?.length || 0 });
             } catch (queryError) {
                 console.error('❌ Error ejecutando query de prospectos:', queryError);
-                throw queryError;
+                console.error('❌ Stack trace:', queryError.stack);
+                return res.status(500).json({ 
+                    success: false, 
+                    error: queryError.message || 'Error obteniendo prospectos',
+                    details: process.env.NODE_ENV === 'development' ? queryError.stack : undefined
+                });
             }
 
         } else if (req.method === 'POST') {
