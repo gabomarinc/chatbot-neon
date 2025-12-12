@@ -70,7 +70,7 @@ class ChatbotDashboard {
             // PRIMERO: Cargar token desde Neon ANTES de inicializar la API
             console.log('🔄 Paso 1: Cargando token API desde Neon...');
             try {
-                await this.loadTokenFromAirtable();
+                await this.loadTokenFromNeon();
                 console.log('✅ Token cargado desde Neon, ahora inicializando API...');
             } catch (tokenError) {
                 console.warn('⚠️ No se pudo cargar token desde Neon, continuando con token de localStorage:', tokenError.message);
@@ -117,7 +117,7 @@ class ChatbotDashboard {
      * Carga el token de API desde Neon al iniciar
      * Esto asegura que el usuario use su token guardado en la base de datos
      */
-    async loadTokenFromAirtable() {
+    async loadTokenFromNeon() {
         try {
             // Obtener email del usuario
             let userEmail = null;
@@ -1073,7 +1073,7 @@ class ChatbotDashboard {
                     throw new Error('Usuario no encontrado');
                 }
 
-                // Buscar usuario en Airtable para verificar contraseña
+                // Buscar usuario en Neon para verificar contraseña
                 const userResult = await window.neonService.getUserByEmail(currentUser.email);
                 
                 if (!userResult.success || !userResult.user) {
@@ -1247,7 +1247,7 @@ class ChatbotDashboard {
                     throw new Error('Usuario no encontrado');
                 }
 
-                // Buscar usuario en Airtable
+                // Buscar usuario en Neon
                 const userResult = await window.neonService.getUserByEmail(currentUser.email);
                 
                 if (!userResult.success || !userResult.user) {
@@ -1318,39 +1318,39 @@ class ChatbotDashboard {
             console.log('👤 Usuario actual:', currentUser);
             console.log('📧 Email del usuario:', currentUser.email);
 
-            // Save to Airtable if available
+            // Save to Neon
             if (window.neonService && window.authService && window.authService.useNeon) {
                 console.log('🗄️ Guardando token en Neon...');
                 console.log('🔍 Buscando usuario por email:', currentUser.email);
                 
                 // Get user ID from Neon
                 const userResult = await window.neonService.getUserByEmail(currentUser.email);
-                console.log('📊 Resultado de búsqueda en Airtable:', userResult);
+                console.log('📊 Resultado de búsqueda en Neon:', userResult);
                 
                 if (!userResult.success || !userResult.user) {
-                    console.error('❌ Usuario no encontrado en Airtable');
-                    throw new Error(`No se pudo encontrar el usuario ${currentUser.email} en Airtable`);
+                    console.error('❌ Usuario no encontrado en Neon');
+                    throw new Error(`No se pudo encontrar el usuario ${currentUser.email} en Neon`);
                 }
                 
                 const userId = userResult.user.id;
-                console.log('🆔 ID del usuario en Airtable:', userId);
+                console.log('🆔 ID del usuario en Neon:', userId);
                 
                 // Update user with API token
                 const updateData = {
                     token_api: apiToken
                 };
-                console.log('📤 Datos a enviar a Airtable:', updateData);
+                console.log('📤 Datos a enviar a Neon:', updateData);
                 
                 const updateResult = await window.neonService.updateUser(userId, updateData);
                 console.log('📊 Resultado de actualización:', updateResult);
                 
                 if (!updateResult.success) {
-                    throw new Error(updateResult.error || 'Error al guardar token en Airtable');
+                    throw new Error(updateResult.error || 'Error al guardar token en Neon');
                 }
                 
-                console.log('✅ Token guardado en Airtable exitosamente');
+                console.log('✅ Token guardado en Neon exitosamente');
             } else {
-                console.log('⚠️ Airtable no disponible, guardando solo en localStorage');
+                console.log('⚠️ Neon no disponible, guardando solo en localStorage');
                 console.log('🔧 neonService disponible:', !!window.neonService);
                 console.log('🔧 authService disponible:', !!window.authService);
                 console.log('🔧 authService.useNeon:', window.authService?.useNeon);
@@ -2722,7 +2722,7 @@ class ChatbotDashboard {
             const availableFields = fieldsResult.success ? fieldsResult.data : [];
             console.log(`📊 ${availableFields.length} campos personalizados disponibles`);
             
-            // Obtener prospecto desde Airtable para cargar campos_solicitados guardados
+            // Obtener prospecto desde Neon para cargar campos_solicitados guardados
             let savedRequestedFields = {};
             if (window.neonService && chatId) {
                 try {
@@ -6561,7 +6561,7 @@ class ChatbotDashboard {
             console.log('📌 Rol asignado automáticamente: user (predefinido)');
 
             try {
-                // Usar TeamManager/Airtable, no datos mock
+                // Usar TeamManager/Neon, no datos mock
                 const ready = await this.waitForTeamManager(3000);
                 if (ready && window.teamManager) {
                     await window.teamManager.handleInvite(form, modal);
@@ -6927,7 +6927,7 @@ class ChatbotDashboard {
                 const uniqueProspects = [];
                 const seenChatIds = new Set();
                 
-                // Ordenar por fecha de creación en Airtable (createdTime) - más reciente primero
+                // Ordenar por fecha de creación en Neon (createdTime) - más reciente primero
                 // Esto asegura que el último prospecto agregado aparezca primero
                 validProspects.sort((a, b) => {
                     // Priorizar createdTime (fecha de creación del registro)
@@ -7066,9 +7066,9 @@ class ChatbotDashboard {
         const viewBtn = row.querySelector('.view-prospect-btn');
         if (viewBtn) {
             viewBtn.addEventListener('click', async () => {
-                // Recargar el prospecto desde Airtable para obtener los comentarios más recientes
+                // Recargar el prospecto desde Neon para obtener los comentarios más recientes
                 try {
-                    console.log('🔄 Recargando prospecto desde Airtable para mostrar comentarios actualizados...');
+                    console.log('🔄 Recargando prospecto desde Neon para mostrar comentarios actualizados...');
                     const result = await window.neonService.getProspectById(prospect.id);
                     if (result.success && result.prospect) {
                         console.log('✅ Prospecto recargado, comentarios:', result.prospect.comentarios ? 'Sí' : 'No');

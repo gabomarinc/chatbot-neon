@@ -10,18 +10,17 @@ class AuthService {
     init() {
         console.log('🔧 Inicializando AuthService...');
         
-        // Determinar modo de operación (Neon vs Mock) ANTES de validar
-        // Verificar si NeonService está disponible
-        if (this.useNeon && !window.neonService) {
-            console.warn('⚠️ NeonService no está disponible, usando datos mock');
-            this.useNeon = false;
-        }
-        
-        // Forzar uso de datos mock para desarrollo
-        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-            console.log('🏠 Modo desarrollo detectado, usando datos mock');
-            this.useNeon = false;
-        }
+        // Siempre usar Neon si está disponible
+        // Esperar un poco para que neonService se cargue
+        setTimeout(() => {
+            if (window.neonService) {
+                this.useNeon = true;
+                console.log('✅ NeonService disponible, usando Neon');
+            } else {
+                console.warn('⚠️ NeonService no está disponible aún, se intentará usar Neon cuando esté disponible');
+                // No desactivar useNeon, solo advertir
+            }
+        }, 500);
 
         // Cargar datos de autenticación desde localStorage
         this.loadAuthData();

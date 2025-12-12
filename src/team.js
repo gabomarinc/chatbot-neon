@@ -14,15 +14,15 @@ class TeamManager {
     constructor() {
         this.maxMembers = 3;
         this.teamMembers = [];
-        this.usingAirtable = false;
+        this.usingNeon = false;
         this.ownerEmailCache = '';
         this.ownerRecordIdCache = '';
         this.init();
     }
 
     async init() {
-        // Usar Airtable siempre que haya apiKey, incluso en localhost
-        this.usingAirtable = !!(window.airtableService && window.airtableService.apiKey);
+        // Usar Neon siempre que esté disponible
+        this.usingNeon = !!(window.neonService && window.authService && window.authService.useNeon);
         await this.loadTeamMembers();
         this.setupEventListeners();
         this.updateTeamUI();
@@ -38,7 +38,7 @@ class TeamManager {
     }
 
     async loadTeamMembers() {
-        if (this.usingAirtable) {
+        if (this.usingNeon) {
             try {
                 const ownerEmail = await this.resolveOwnerEmail();
                 if (!ownerEmail) {
@@ -46,12 +46,16 @@ class TeamManager {
                     this.teamMembers = [];
                     return;
                 }
-                const result = await window.airtableService.getTeamMembers(ownerEmail);
-                this.teamMembers = (result.success && Array.isArray(result.members)) ? result.members : [];
-                console.log('✅ Miembros del equipo (Airtable):', this.teamMembers);
+                // Obtener miembros del equipo desde Neon usando el email del owner
+                // Los miembros del equipo son usuarios con team_owner_email = ownerEmail
+                const result = await window.neonService.getAllUsers({ 
+                    teamOwnerEmail: ownerEmail 
+                });
+                this.teamMembers = (result.success && Array.isArray(result.users)) ? result.users : [];
+                console.log('✅ Miembros del equipo (Neon):', this.teamMembers);
             } catch (error) {
-                console.error('❌ Error cargando equipo desde Airtable:', error);
-                // En modo Airtable, si hay error, mostrar vacío (no datos locales)
+                console.error('❌ Error cargando equipo desde Neon:', error);
+                // En modo Neon, si hay error, mostrar vacío (no datos locales)
                 this.teamMembers = [];
             }
         } else {
@@ -60,7 +64,7 @@ class TeamManager {
             if (savedTeam) {
                 try {
                     this.teamMembers = JSON.parse(savedTeam);
-                    console.log('✅ Miembros del equipo cargados:', this.teamMembers);
+                    console.log('✅ Miembros del equipo cargados desde localStorage:', this.teamMembers);
                 } catch (error) {
                     console.error('❌ Error cargando miembros del equipo:', error);
                     this.teamMembers = [];
@@ -70,9 +74,9 @@ class TeamManager {
     }
 
     saveTeamMembers() {
-        if (this.usingAirtable) return; // En Airtable no guardamos en localStorage
+        if (this.usingNeon) return; // En Neon no guardamos en localStorage
         localStorage.setItem('teamMembers', JSON.stringify(this.teamMembers));
-        console.log('💾 Miembros del equipo guardados');
+        console.log('💾 Miembros del equipo guardados en localStorage');
     }
 
     updateTeamUI() {
@@ -292,12 +296,12 @@ class TeamManager {
             }
         }
 
-        // Último recurso: pedir a Airtable el registro del usuario actual
-        if (authService && window.airtableService) {
+        // Último recurso: pedir a Neon el registro del usuario actual
+        if (authService && window.neonService) {
             try {
                 const currentUser = authService.getCurrentUser?.();
-                if (currentUser?.id) {
-                    const freshUser = await window.airtableService.getUserById(currentUser.id);
+                if (currentUser?.email) {
+                    const freshUser = await window.neonService.getUserByEmail(currentUser.email);
                     if (freshUser?.success && freshUser.user) {
                         const email = this.extractOwnerEmail(freshUser.user);
                         if (trySetCache(email)) {
@@ -315,7 +319,7 @@ class TeamManager {
                     }
                 }
             } catch (error) {
-                console.warn('⚠️ No se pudo obtener ownerEmail desde Airtable:', error);
+                console.warn('⚠️ No se pudo obtener ownerEmail desde Neon:', error);
             }
         }
 
@@ -341,15 +345,15 @@ class TeamManager {
             }
         }
 
-        if (window.airtableService && ownerEmail) {
+        if (window.neonService && ownerEmail) {
             try {
-                const ownerResult = await window.airtableService.getUserByEmail(ownerEmail);
+                const ownerResult = await window.neonService.getUserByEmail(ownerEmail);
                 if (ownerResult?.success && ownerResult.user?.id) {
                     this.ownerRecordIdCache = ownerResult.user.id;
                     return this.ownerRecordIdCache;
                 }
             } catch (error) {
-                console.warn('⚠️ No se pudo obtener ownerRecordId desde Airtable:', error);
+                console.warn('⚠️ No se pudo obtener ownerRecordId desde Neon:', error);
             }
         }
 
@@ -369,21 +373,27 @@ class TeamManager {
         };
 
         try {
-            if (this.usingAirtable) {
+            if (this.usingNeon) {
                 const ownerEmail = await this.resolveOwnerEmail();
                 if (!ownerEmail) {
                     throw new Error('No se encontró el email del propietario. Vuelve a iniciar sesión e inténtalo de nuevo.');
                 }
                 this.ownerEmailCache = ownerEmail;
-                const ownerRecordId = await this.resolveOwnerRecordId(ownerEmail);
-                const result = await window.airtableService.addTeamMember(ownerEmail, {
+                
+                // Crear usuario como miembro del equipo en Neon
+                const result = await window.neonService.createUser({
                     email: memberData.email,
-                    name: memberData.name,
-                    role: memberData.role,
-                    ownerRecordId
+                    firstName: memberData.name.split(' ')[0] || memberData.name,
+                    lastName: memberData.name.split(' ').slice(1).join(' ') || '',
+                    password: '', // Se generará o se pedirá después
+                    role: 'member',
+                    isTeamMember: true,
+                    teamOwnerEmail: ownerEmail,
+                    memberRole: memberData.role
                 });
-                if (!result.success) throw new Error(result.error || 'No se pudo agregar');
-                // Recargar desde Airtable para asegurar datos reales
+                
+                if (!result.success) throw new Error(result.error || 'No se pudo agregar miembro');
+                // Recargar desde Neon para asegurar datos reales
                 await this.loadTeamMembers();
             } else {
                 // Agregar miembro al equipo localmente
@@ -401,7 +411,7 @@ class TeamManager {
         } catch (error) {
             console.error('❌ Error agregando miembro:', error);
             // Fallback: guardar localmente para no bloquear el flujo
-            if (!this.usingAirtable) {
+            if (!this.usingNeon) {
                 this.teamMembers.push(memberData);
                 this.saveTeamMembers();
                 this.updateTeamUI();
@@ -419,10 +429,15 @@ class TeamManager {
         if (!confirm(`¿Estás seguro de eliminar a ${member.name} del equipo?`)) return;
 
         try {
-            if (this.usingAirtable && memberId) {
-                const result = await window.airtableService.removeTeamMember(memberId);
-                if (!result.success) throw new Error(result.error || 'No se pudo eliminar en Airtable');
-                // Recargar desde Airtable
+            if (this.usingNeon && memberId) {
+                // Eliminar miembro del equipo en Neon (actualizar is_team_member a false o eliminar)
+                const result = await window.neonService.updateUser(memberId, {
+                    isTeamMember: false,
+                    teamOwnerEmail: null,
+                    memberRole: null
+                });
+                if (!result.success) throw new Error(result.error || 'No se pudo eliminar en Neon');
+                // Recargar desde Neon
                 await this.loadTeamMembers();
             } else {
                 this.teamMembers = this.teamMembers.filter(m => m.id !== memberId);

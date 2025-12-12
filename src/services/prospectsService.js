@@ -388,10 +388,10 @@ class ProspectsService {
         }
     }
 
-    // ===== GESTIÓN EN AIRTABLE =====
+    // ===== GESTIÓN EN NEON =====
 
     /**
-     * Guarda o actualiza un prospecto en Airtable
+     * Guarda o actualiza un prospecto en Neon
      */
     async saveProspect(prospectData) {
         try {
@@ -476,7 +476,7 @@ class ProspectsService {
                             alreadyExists: false
                         };
                     } else {
-                        console.log(`➕ Creando nuevo prospecto (no existe en Airtable para chat_id: ${prospectData.chatId})`);
+                        console.log(`➕ Creando nuevo prospecto (no existe en Neon para chat_id: ${prospectData.chatId})`);
                     }
                     
                     // Crear nuevo prospecto solo si no existe
@@ -503,7 +503,7 @@ class ProspectsService {
     }
 
     /**
-     * Obtiene todos los prospectos de Airtable
+     * Obtiene todos los prospectos de Neon
      */
     async getAllProspects() {
         try {
@@ -608,7 +608,7 @@ class ProspectsService {
             const checkErrors = [];
             
             // Verificar existencia de cada prospecto (necesario para evitar duplicados)
-            // Nota: Airtable no tiene batch check, así que hacemos verificaciones individuales
+            // Nota: Hacemos verificaciones individuales para cada prospecto
             // pero agrupamos las creaciones después
             for (const prospectData of prospectsData) {
                 try {
@@ -656,7 +656,7 @@ class ProspectsService {
                 
                 if ((hasNewImages && !existingHasImages) || (hasNewDocuments && !existingHasDocuments)) {
                     try {
-                        const updateResult = await this.airtableService.updateProspect(prospect.id, {
+                        const updateResult = await this.neonService.updateProspect(prospect.id, {
                             imagenesUrls: newData.imagenesUrls,
                             documentosUrls: newData.documentosUrls
                         });
