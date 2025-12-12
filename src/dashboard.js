@@ -757,9 +757,10 @@ class ChatbotDashboard {
             tab.classList.remove('active');
         });
         
-        // Remove active class from all tab contents
+        // Remove active class from all tab contents and hide them
         document.querySelectorAll('.profile-content .tab-content').forEach(content => {
             content.classList.remove('active');
+            content.style.display = 'none';
         });
         
         // Add active class to clicked tab
@@ -768,20 +769,24 @@ class ChatbotDashboard {
             clickedTab.classList.add('active');
         }
         
-        // Add active class to corresponding content
+        // Add active class to corresponding content and show it
         const tabContent = document.getElementById(tabId);
         if (tabContent) {
             tabContent.classList.add('active');
+            tabContent.style.display = 'block';
         }
         
         // Si es la pestaña de configuración API, cargar el token INMEDIATAMENTE
         if (tabId === 'api-config') {
             console.log('🔧🔧🔧 PESTAÑA API-CONFIG ACTIVADA - CARGANDO TOKEN 🔧🔧🔧');
-            // Cargar inmediatamente y también después de un pequeño delay
+            // Cargar inmediatamente y también después de pequeños delays para asegurar que se cargue
             this.loadApiToken();
             setTimeout(() => {
                 this.loadApiToken();
-            }, 300);
+            }, 200);
+            setTimeout(() => {
+                this.loadApiToken();
+            }, 500);
         }
     }
 
@@ -7919,5 +7924,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     console.log('✅ Función showTeamModal expuesta globalmente en window');
+});
 });
 });
