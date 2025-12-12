@@ -77,37 +77,41 @@ class BillingManager {
             try {
                 customerInfo = await this.stripeService.getCustomerInfo();
             } catch (error) {
-                console.error('❌ Error obteniendo información del cliente:', error);
+                // Manejar errores de Stripe de forma silenciosa si no está configurado
+                // No romper la aplicación por errores de Stripe
+                console.warn('⚠️ Error obteniendo información del cliente de Stripe (continuando sin datos de facturación):', error.message);
                 
-                // Mensaje de error más específico
-                let errorMessage = 'No se pudo obtener la información del cliente de Stripe.';
-                
-                if (error.message.includes('stripe_customer_id no configurado')) {
-                    errorMessage += '\n\nEl campo stripe_customer_id no está configurado en Airtable.';
-                    errorMessage += '\n\nPara solucionarlo:';
-                    errorMessage += '\n1. Ejecuta: debugStripeCustomerId() en la consola';
-                    errorMessage += '\n2. Verifica el nombre exacto del campo en Airtable';
-                    errorMessage += '\n3. Asegúrate de que el campo tenga un valor (ej: cus_THw3cWvDfKwj5g)';
-                } else if (error.message.includes('404') || error.message.includes('Not Found') || error.message.includes('Customer not found')) {
-                    const stripeCustomerId = currentUser.stripeCustomerId || currentUser.stripe_customer_id || 'N/A';
-                    errorMessage += `\n\nEl Customer ID "${stripeCustomerId}" no existe en Stripe o no está asociado a tu cuenta.`;
-                    errorMessage += '\n\nPosibles causas:';
-                    errorMessage += '\n1. El Customer ID en Airtable es incorrecto';
-                    errorMessage += '\n2. El Customer ID fue eliminado de Stripe';
-                    errorMessage += '\n3. La clave secreta de Stripe no tiene acceso a este customer';
-                    errorMessage += '\n\nSolución: Verifica el Customer ID en Airtable y asegúrate de que existe en tu cuenta de Stripe.';
-                } else if (error.message.includes('ERR_BLOCKED_BY_CLIENT') || error.message.includes('Failed to fetch')) {
-                    errorMessage += '\n\nPosible bloqueo por extensión del navegador.';
-                    errorMessage += '\n\nSolución: Desactiva ad-blockers o extensiones de privacidad.';
-                } else if (error.message.includes('Unauthorized') || error.message.includes('401')) {
-                    errorMessage += '\n\nError de autenticación con el servidor.';
-                    errorMessage += '\n\nSolución: Verifica que la variable STRIPE_SECRET_KEY esté configurada correctamente en Vercel.';
-                } else {
-                    errorMessage += `\n\nError: ${error.message}`;
+                // Solo mostrar error detallado en desarrollo
+                if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                    let errorMessage = 'No se pudo obtener la información del cliente de Stripe.';
+                    
+                    if (error.message.includes('stripe_customer_id no configurado')) {
+                        errorMessage += '\n\nEl campo stripe_customer_id no está configurado en Neon.';
+                        errorMessage += '\n\nPara solucionarlo:';
+                        errorMessage += '\n1. Verifica el nombre exacto del campo en Neon';
+                        errorMessage += '\n2. Asegúrate de que el campo tenga un valor (ej: cus_THw3cWvDfKwj5g)';
+                    } else if (error.message.includes('404') || error.message.includes('Not Found') || error.message.includes('Customer not found')) {
+                        const stripeCustomerId = currentUser?.stripeCustomerId || currentUser?.stripe_customer_id || 'N/A';
+                        errorMessage += `\n\nEl Customer ID "${stripeCustomerId}" no existe en Stripe o no está asociado a tu cuenta.`;
+                        errorMessage += '\n\nPosibles causas:';
+                        errorMessage += '\n1. El Customer ID en Neon es incorrecto';
+                        errorMessage += '\n2. El Customer ID fue eliminado de Stripe';
+                        errorMessage += '\n3. La clave secreta de Stripe no tiene acceso a este customer';
+                        errorMessage += '\n4. STRIPE_SECRET_KEY no está configurada en Vercel';
+                        errorMessage += '\n\nSolución: Verifica el Customer ID en Neon y asegúrate de que existe en tu cuenta de Stripe.';
+                    } else if (error.message.includes('ERR_BLOCKED_BY_CLIENT') || error.message.includes('Failed to fetch')) {
+                        errorMessage += '\n\nPosible bloqueo por extensión del navegador o endpoint no disponible.';
+                        errorMessage += '\n\nSolución: Desactiva ad-blockers o verifica que los endpoints de Stripe estén desplegados en Vercel.';
+                    } else if (error.message.includes('Unauthorized') || error.message.includes('401')) {
+                        errorMessage += '\n\nError de autenticación con el servidor.';
+                        errorMessage += '\n\nSolución: Verifica que la variable STRIPE_SECRET_KEY esté configurada correctamente en Vercel.';
+                    }
+                    console.error('❌', errorMessage);
                 }
                 
-                this.showErrorMessage(errorMessage);
-                return; // Si no hay customerInfo, no podemos continuar
+                // NO romper el flujo - continuar sin datos de Stripe
+                // El usuario puede usar la app sin facturación
+                customerInfo = null;
             }
             
             // Cargar el resto de datos en paralelo
@@ -127,14 +131,18 @@ class BillingManager {
             ]);
 
             this.customerInfo = customerInfo;
-            this.subscriptions = subscriptions;
-            this.invoices = invoices;
-            this.paymentMethods = paymentMethods;
+            this.subscriptions = subscriptions || [];
+            this.invoices = invoices || [];
+            this.paymentMethods = paymentMethods || [];
 
-            // Renderizar la UI
+            // Renderizar la UI (funcionará incluso sin datos de Stripe)
             this.renderBillingUI();
             
-            console.log('✅ Datos de facturación cargados correctamente desde Stripe');
+            if (customerInfo) {
+                console.log('✅ Datos de facturación cargados correctamente desde Stripe');
+            } else {
+                console.log('ℹ️ Dashboard cargado sin datos de Stripe (esto es normal si Stripe no está configurado)');
+            }
         } catch (error) {
             console.error('❌ Error cargando datos de facturación:', error);
             this.showErrorMessage('Error cargando datos de facturación desde Stripe');
