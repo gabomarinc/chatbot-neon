@@ -539,14 +539,28 @@ class NeonService {
                     fecha_extraccion: prospectData.fechaExtraccion || new Date().toISOString(),
                     user_email: userEmail,
                     workspace_id: workspaceId,
-                    user_id: userId
+                    user_id: userId,
+                    // Agregar todos los campos opcionales que el endpoint espera
+                    telefono: prospectData.telefono || null,
+                    canal: prospectData.canal || null,
+                    fecha_ultimo_mensaje: prospectData.fechaUltimoMensaje || null,
+                    estado: prospectData.estado || 'Nuevo',
+                    agente_id: prospectData.agenteId || null,
+                    notas: prospectData.notas || null,
+                    comentarios: prospectData.comentarios || null
                 };
                 
+                // Manejar arrays que deben ser JSON strings
                 if (prospectData.imagenesUrls && Array.isArray(prospectData.imagenesUrls) && prospectData.imagenesUrls.length > 0) {
                     record.imagenes_urls = JSON.stringify(prospectData.imagenesUrls);
                 }
                 if (prospectData.documentosUrls && Array.isArray(prospectData.documentosUrls) && prospectData.documentosUrls.length > 0) {
                     record.documentos_urls = JSON.stringify(prospectData.documentosUrls);
+                }
+                if (prospectData.camposSolicitados) {
+                    record.campos_solicitados = typeof prospectData.camposSolicitados === 'string' 
+                        ? prospectData.camposSolicitados 
+                        : JSON.stringify(prospectData.camposSolicitados);
                 }
                 
                 return record;
@@ -561,8 +575,17 @@ class NeonService {
             });
 
             if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.message || 'Error creando prospectos');
+                let errorMessage = 'Error creando prospectos';
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.error || errorMessage;
+                    console.error('❌ Error respuesta del servidor:', errorData);
+                } catch (e) {
+                    // Si no se puede parsear el error, usar el status
+                    errorMessage = `Error ${response.status}: ${response.statusText}`;
+                    console.error('❌ Error HTTP:', response.status, response.statusText);
+                }
+                throw new Error(errorMessage);
             }
 
             const data = await response.json();
