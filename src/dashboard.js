@@ -881,24 +881,41 @@ class ChatbotDashboard {
             return;
         }
 
+        // IMPORTANTE: Limpiar el input PRIMERO para evitar mostrar tokens de otros usuarios
+        tokenInput.value = '';
+        console.log('🧹 Input limpiado antes de cargar token del usuario actual');
+
         try {
-            // PASO 1: OBTENER EMAIL DEL USUARIO
+            // PASO 1: OBTENER EMAIL DEL USUARIO ACTUAL (SIEMPRE desde authService o getCurrentUser)
             let userEmail = null;
             
-            // Intentar desde authService primero
+            // Prioridad 1: authService.getCurrentUser() - esta es la fuente más confiable
             if (window.authService && typeof window.authService.getCurrentUser === 'function') {
                 try {
                     const user = window.authService.getCurrentUser();
                     if (user && user.email) {
-                        userEmail = user.email;
-                        console.log('✅ Email obtenido de authService.getCurrentUser():', userEmail);
+                        userEmail = user.email.trim();
+                        console.log('✅✅✅ Email obtenido de authService.getCurrentUser():', userEmail);
                     }
                 } catch (e) {
                     console.warn('⚠️ Error obteniendo email de authService:', e);
                 }
             }
             
-            // Si no se obtuvo, intentar desde el elemento del perfil
+            // Prioridad 2: getCurrentUser() del dashboard
+            if (!userEmail) {
+                try {
+                    const currentUser = this.getCurrentUser();
+                    if (currentUser && currentUser.email) {
+                        userEmail = currentUser.email.trim();
+                        console.log('✅ Email obtenido de getCurrentUser():', userEmail);
+                    }
+                } catch (e) {
+                    console.warn('⚠️ Error en getCurrentUser():', e);
+                }
+            }
+            
+            // Prioridad 3: Elemento del perfil (menos confiable, pero mejor que nada)
             if (!userEmail) {
                 const profileEmailEl = document.querySelector('#profileEmail');
                 if (profileEmailEl && profileEmailEl.textContent && profileEmailEl.textContent.trim() !== 'Cargando...') {
@@ -907,27 +924,15 @@ class ChatbotDashboard {
                 }
             }
             
-            // Si aún no se tiene, intentar desde getCurrentUser
             if (!userEmail) {
-                try {
-                    const currentUser = this.getCurrentUser();
-                    if (currentUser && currentUser.email) {
-                        userEmail = currentUser.email;
-                        console.log('✅ Email obtenido de getCurrentUser():', userEmail);
-                    }
-                } catch (e) {
-                    console.warn('⚠️ Error en getCurrentUser():', e);
-                }
-            }
-            
-            if (!userEmail) {
-                console.error('❌ ERROR: No se pudo obtener el email del usuario');
-                console.error('Reintentando en 500ms...');
+                console.error('❌ ERROR: No se pudo obtener el email del usuario actual');
+                console.error('❌ No se cargará ningún token para evitar mostrar tokens de otros usuarios');
+                tokenInput.value = ''; // Asegurar que está vacío
                 setTimeout(() => this.loadApiToken(), 500);
-                    return;
+                return;
             }
             
-            console.log('📧 Email del usuario:', userEmail);
+            console.log('📧📧📧 EMAIL DEL USUARIO ACTUAL:', userEmail, '📧📧📧');
             
             // PASO 2: ESPERAR A QUE NEON SERVICE ESTÉ DISPONIBLE
             if (!window.neonService) {
@@ -943,58 +948,57 @@ class ChatbotDashboard {
             
             if (!window.neonService) {
                 console.error('❌ ERROR: neonService NO está disponible después de esperar');
+                tokenInput.value = ''; // Asegurar que está vacío
                 return;
             }
             
-            // PASO 3: CONSULTAR NEON PARA OBTENER EL TOKEN
-            console.log('📞 Llamando window.neonService.getUserByEmail(' + userEmail + ')');
+            // PASO 3: CONSULTAR NEON PARA OBTENER EL TOKEN DEL USUARIO ACTUAL
+            console.log('📞📞📞 Consultando Neon para obtener token del usuario:', userEmail, '📞📞📞');
             const result = await window.neonService.getUserByEmail(userEmail);
             
-            console.log('📦 RESULTADO COMPLETO de getUserByEmail:', result);
-            console.log('📦 result.success:', result?.success);
-            console.log('📦 result.user:', result?.user ? 'EXISTE' : 'NO EXISTE');
-            console.log('📦 result.user.token_api:', result?.user?.token_api ? 'EXISTE' : 'NO EXISTE');
+            console.log('📦 RESULTADO de getUserByEmail para', userEmail, ':', {
+                success: result?.success,
+                hasUser: !!result?.user,
+                hasToken: !!result?.user?.token_api,
+                tokenLength: result?.user?.token_api?.length || 0
+            });
             
             if (result && result.success && result.user) {
                 const token = result.user.token_api;
                 
-                if (token) {
-                    console.log('🔑 Token encontrado en result.user.token_api');
-                    console.log('🔑 Tipo:', typeof token);
-                    console.log('🔑 Longitud:', token.length);
-                    console.log('🔑 Primeros 30 caracteres:', token.substring(0, 30) + '...');
-            } else {
-                    console.warn('⚠️ result.user.token_api es:', token);
-                }
-                
+                // Verificar que el token sea válido
                 if (token && typeof token === 'string' && token.trim() !== '') {
-                    // CARGAR EL TOKEN EN EL INPUT
-                    tokenInput.value = token;
-                    console.log('✅✅✅✅✅ TOKEN CARGADO EN EL INPUT #apiToken ✅✅✅✅✅');
-                    console.log('✅ Valor del input ahora:', tokenInput.value.substring(0, 30) + '...');
+                    console.log('🔑✅✅✅ TOKEN VÁLIDO ENCONTRADO PARA', userEmail, '✅✅✅🔑');
+                    console.log('🔑 Longitud del token:', token.length);
+                    console.log('🔑 Primeros 30 caracteres:', token.substring(0, 30) + '...');
                     
-                    // También guardar en localStorage
+                    // CARGAR EL TOKEN EN EL INPUT (SOLO el token del usuario actual)
+                    tokenInput.value = token;
+                    console.log('✅✅✅ TOKEN CARGADO EN EL INPUT #apiToken ✅✅✅');
+                    
+                    // También guardar en localStorage (para uso de la API)
                     localStorage.setItem('gptmaker_token', token);
                     localStorage.setItem('apiToken', token);
-                    console.log('✅ Token guardado en localStorage');
+                    console.log('✅ Token guardado en localStorage para usuario:', userEmail);
                     
                     return;
                 } else {
-                    console.warn('⚠️ El token existe pero está vacío o no es válido');
+                    console.warn('⚠️ El usuario existe pero token_api está vacío o no es válido');
                     console.warn('⚠️ Token value:', token);
                     console.warn('⚠️ Tipo:', typeof token);
-                    tokenInput.value = '';
+                    tokenInput.value = ''; // Asegurar que está vacío
                 }
             } else {
-                console.error('❌ ERROR: No se pudo obtener el usuario de Neon');
+                console.error('❌ ERROR: No se pudo obtener el usuario de Neon para email:', userEmail);
                 console.error('❌ result.success:', result?.success);
                 console.error('❌ result.error:', result?.error);
-                tokenInput.value = '';
+                tokenInput.value = ''; // Asegurar que está vacío
             }
             
         } catch (error) {
             console.error('❌ ERROR EXCEPCIÓN al cargar token:', error);
             console.error('❌ Stack:', error.stack);
+            tokenInput.value = ''; // Asegurar que está vacío en caso de error
         }
     }
 
@@ -7313,8 +7317,8 @@ class ChatbotDashboard {
                 throw new Error(result.error || 'Error extrayendo prospectos');
             }
 
-            console.log(`📊 ${result.prospects.length} prospectos encontrados, ${result.errors.length} errores en el análisis`);
-            
+                console.log(`📊 ${result.prospects.length} prospectos encontrados, ${result.errors.length} errores en el análisis`);
+                
             if (result.prospects.length === 0) {
                 this.showNotification('No se encontraron prospectos para guardar.', 'warning');
                 return;
@@ -7332,89 +7336,89 @@ class ChatbotDashboard {
             console.log(`💾 Guardando ${result.prospects.length} prospectos en base de datos...`);
             this.showNotification(`Guardando ${result.prospects.length} prospectos en base de datos...`, 'info');
 
-            let savedCount = 0;
-            let alreadyExistsCount = 0;
-            let updatedCount = 0;
-            let errorCount = 0;
-            const saveErrors = [];
+                let savedCount = 0;
+                let alreadyExistsCount = 0;
+                let updatedCount = 0;
+                let errorCount = 0;
+                const saveErrors = [];
 
             // Usar batch operations cuando hay múltiples prospectos
-            if (result.prospects.length > 1) {
-                console.log(`📦 Usando batch operations para ${result.prospects.length} prospectos...`);
-                const batchResult = await window.prospectsService.saveProspectsBatch(result.prospects);
-                
-                savedCount = batchResult.savedCount || 0;
-                alreadyExistsCount = batchResult.alreadyExistsCount || 0;
-                updatedCount = batchResult.updatedCount || 0;
-                errorCount = batchResult.errorCount || 0;
-                
-                // Convertir errores a formato de mensaje
-                batchResult.errors.forEach(err => {
-                    const errorMsg = `Chat ${err.prospect?.chatId || 'desconocido'}: ${err.error}`;
-                    saveErrors.push(errorMsg);
-                });
-                
-                console.log(`✅ Batch completado: ${savedCount} nuevos, ${alreadyExistsCount} existentes, ${updatedCount} actualizados, ${errorCount} errores`);
-            } else {
-                // Si hay solo uno, usar método individual
-                for (const prospectData of result.prospects) {
-                    console.log(`💾 Guardando prospecto: ${prospectData.nombre} (chat: ${prospectData.chatId})`);
-                    const saveResult = await window.prospectsService.saveProspect(prospectData);
-                    if (saveResult.success) {
-                        if (!saveResult.alreadyExists) {
-                            savedCount++;
-                            console.log(`✅ Prospecto guardado: ${prospectData.nombre}`);
-                        } else {
-                            alreadyExistsCount++;
-                            if (saveResult.wasUpdated) {
-                                updatedCount++;
-                            }
-                            console.log(`⏭️ Prospecto ya existe: ${prospectData.nombre}`);
-                        }
-                    } else {
-                        errorCount++;
-                        const errorMsg = `Chat ${prospectData.chatId}: ${saveResult.error}`;
-                        console.error('❌ Error guardando prospecto:', errorMsg);
+                if (result.prospects.length > 1) {
+                    console.log(`📦 Usando batch operations para ${result.prospects.length} prospectos...`);
+                    const batchResult = await window.prospectsService.saveProspectsBatch(result.prospects);
+                    
+                    savedCount = batchResult.savedCount || 0;
+                    alreadyExistsCount = batchResult.alreadyExistsCount || 0;
+                    updatedCount = batchResult.updatedCount || 0;
+                    errorCount = batchResult.errorCount || 0;
+                    
+                    // Convertir errores a formato de mensaje
+                    batchResult.errors.forEach(err => {
+                        const errorMsg = `Chat ${err.prospect?.chatId || 'desconocido'}: ${err.error}`;
                         saveErrors.push(errorMsg);
+                    });
+                    
+                    console.log(`✅ Batch completado: ${savedCount} nuevos, ${alreadyExistsCount} existentes, ${updatedCount} actualizados, ${errorCount} errores`);
+                } else {
+                // Si hay solo uno, usar método individual
+                    for (const prospectData of result.prospects) {
+                        console.log(`💾 Guardando prospecto: ${prospectData.nombre} (chat: ${prospectData.chatId})`);
+                        const saveResult = await window.prospectsService.saveProspect(prospectData);
+                        if (saveResult.success) {
+                            if (!saveResult.alreadyExists) {
+                                savedCount++;
+                                console.log(`✅ Prospecto guardado: ${prospectData.nombre}`);
+                            } else {
+                                alreadyExistsCount++;
+                                if (saveResult.wasUpdated) {
+                                    updatedCount++;
+                                }
+                                console.log(`⏭️ Prospecto ya existe: ${prospectData.nombre}`);
+                            }
+                        } else {
+                            errorCount++;
+                            const errorMsg = `Chat ${prospectData.chatId}: ${saveResult.error}`;
+                            console.error('❌ Error guardando prospecto:', errorMsg);
+                            saveErrors.push(errorMsg);
+                        }
                     }
                 }
-            }
 
-            // Mostrar errores de guardado si los hay
-            if (saveErrors.length > 0) {
-                console.warn('⚠️ Errores al guardar:', saveErrors);
-            }
+                // Mostrar errores de guardado si los hay
+                if (saveErrors.length > 0) {
+                    console.warn('⚠️ Errores al guardar:', saveErrors);
+                }
 
-            // Mensaje final
-            let message = '';
-            const parts = [];
-            
-            if (savedCount > 0) {
-                parts.push(`${savedCount} nuevo${savedCount > 1 ? 's' : ''}`);
-            }
-            if (updatedCount > 0) {
-                parts.push(`${updatedCount} actualizado${updatedCount > 1 ? 's' : ''}`);
-            }
-            if (alreadyExistsCount > 0) {
-                parts.push(`${alreadyExistsCount} ya existente${alreadyExistsCount > 1 ? 's' : ''}`);
-            }
-            
-            if (parts.length > 0) {
+                // Mensaje final
+                let message = '';
+                const parts = [];
+                
+                if (savedCount > 0) {
+                    parts.push(`${savedCount} nuevo${savedCount > 1 ? 's' : ''}`);
+                }
+                if (updatedCount > 0) {
+                    parts.push(`${updatedCount} actualizado${updatedCount > 1 ? 's' : ''}`);
+                }
+                if (alreadyExistsCount > 0) {
+                    parts.push(`${alreadyExistsCount} ya existente${alreadyExistsCount > 1 ? 's' : ''}`);
+                }
+                
+                if (parts.length > 0) {
                 message = `✅ ${parts.join(', ')} prospecto${parts.length > 1 ? 's' : ''} guardado${parts.length > 1 ? 's' : ''}`;
-                if (errorCount > 0 || result.errors.length > 0) {
-                    const totalErrors = errorCount + result.errors.length;
-                    message += ` (${totalErrors} error${totalErrors > 1 ? 'es' : ''})`;
-                }
-                this.showNotification(message, 'success');
-            } else {
+                    if (errorCount > 0 || result.errors.length > 0) {
+                        const totalErrors = errorCount + result.errors.length;
+                        message += ` (${totalErrors} error${totalErrors > 1 ? 'es' : ''})`;
+                    }
+                    this.showNotification(message, 'success');
+                } else {
                 message = `⚠️ No se pudieron guardar prospectos`;
-                if (errorCount > 0 || result.errors.length > 0) {
-                    const totalErrors = errorCount + result.errors.length;
-                    message += ` (${totalErrors} error${totalErrors > 1 ? 'es' : ''})`;
-                    console.log('💡 Abre la consola del navegador para ver los detalles de los errores');
+                    if (errorCount > 0 || result.errors.length > 0) {
+                        const totalErrors = errorCount + result.errors.length;
+                        message += ` (${totalErrors} error${totalErrors > 1 ? 'es' : ''})`;
+                        console.log('💡 Abre la consola del navegador para ver los detalles de los errores');
+                    }
+                    this.showNotification(message, 'warning');
                 }
-                this.showNotification(message, 'warning');
-            }
 
             // PASO 3: SOLO DESPUÉS DE GUARDAR, MOSTRAR EN PANTALLA
             if (savedCount > 0 || updatedCount > 0 || alreadyExistsCount > 0) {
