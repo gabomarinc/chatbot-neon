@@ -7925,5 +7925,3 @@ document.addEventListener('DOMContentLoaded', () => {
     
     console.log('✅ Función showTeamModal expuesta globalmente en window');
 });
-});
-});
