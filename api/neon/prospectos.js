@@ -18,7 +18,10 @@ module.exports = async (req, res) => {
     try {
         // Parsear la URL
         const url = req.url || '';
+        console.log('🔍 URL recibida en prospectos:', url);
         const urlParts = url.split('/').filter(p => p);
+        console.log('🔍 URL parts:', urlParts);
+        console.log('🔍 Método:', req.method);
         
         const isBatchRoute = urlParts.includes('batch');
         const isChatRoute = urlParts.includes('chat');
@@ -26,17 +29,34 @@ module.exports = async (req, res) => {
 
         // Ruta: /api/neon/prospectos/batch
         if (isBatchRoute && req.method === 'POST') {
+            console.log('📦 Procesando batch de prospectos...');
             const { records } = req.body;
+            
+            console.log('📦 Body recibido:', {
+                hasRecords: !!records,
+                recordsType: Array.isArray(records) ? 'array' : typeof records,
+                recordsLength: Array.isArray(records) ? records.length : 'N/A',
+                firstRecord: Array.isArray(records) && records.length > 0 ? records[0] : null
+            });
 
             if (!Array.isArray(records) || records.length === 0) {
+                console.error('❌ Error: records debe ser un array no vacío');
                 return res.status(400).json({ success: false, error: 'records debe ser un array no vacío' });
             }
 
             const created = [];
             const errors = [];
 
-            for (const record of records) {
+            for (let i = 0; i < records.length; i++) {
+                const record = records[i];
                 try {
+                    console.log(`📝 Procesando prospecto ${i + 1}/${records.length}:`, {
+                        nombre: record.nombre,
+                        chat_id: record.chat_id,
+                        hasUserEmail: !!record.user_email,
+                        hasWorkspaceId: !!record.workspace_id
+                    });
+                    
                     const {
                         nombre, chat_id, fecha_extraccion, user_email, workspace_id, user_id,
                         telefono, canal, fecha_ultimo_mensaje, estado, imagenes_urls,
@@ -44,7 +64,9 @@ module.exports = async (req, res) => {
                     } = record;
 
                     if (!nombre || !chat_id) {
-                        errors.push({ record, error: 'nombre y chat_id son requeridos' });
+                        const errorMsg = `nombre y chat_id son requeridos (nombre: ${nombre ? 'OK' : 'FALTA'}, chat_id: ${chat_id ? 'OK' : 'FALTA'})`;
+                        console.error(`❌ Error en prospecto ${i + 1}:`, errorMsg);
+                        errors.push({ record, error: errorMsg });
                         continue;
                     }
 
@@ -52,6 +74,7 @@ module.exports = async (req, res) => {
                     const existing = await executeQuery(existingQuery, [chat_id]);
                     
                     if (existing && existing.length > 0) {
+                        console.log(`ℹ️ Prospecto ya existe (chat_id: ${chat_id}), saltando...`);
                         created.push({ ...existing[0], alreadyExists: true });
                         continue;
                     }
@@ -78,11 +101,15 @@ module.exports = async (req, res) => {
                     const result = await executeQuery(query, params);
                     
                     if (result && result.length > 0) {
+                        console.log(`✅ Prospecto ${i + 1} creado exitosamente:`, result[0].id);
                         created.push(result[0]);
                     } else {
-                        errors.push({ record, error: 'No se pudo crear el prospecto' });
+                        const errorMsg = 'No se pudo crear el prospecto (query no devolvió resultado)';
+                        console.error(`❌ Error en prospecto ${i + 1}:`, errorMsg);
+                        errors.push({ record, error: errorMsg });
                     }
                 } catch (error) {
+                    console.error(`❌ Error procesando prospecto ${i + 1}:`, error.message);
                     errors.push({ record, error: error.message || 'Error desconocido' });
                 }
             }
@@ -100,22 +127,33 @@ module.exports = async (req, res) => {
 
         // Ruta: /api/neon/prospectos/chat/[chatId]
         if (isChatRoute && req.method === 'GET') {
+            console.log('🔍 Buscando prospecto por chat_id...');
             const chatIdIndex = urlParts.indexOf('chat');
             const chatId = chatIdIndex !== -1 && urlParts[chatIdIndex + 1] 
                 ? decodeURIComponent(urlParts[chatIdIndex + 1]) 
                 : req.query.chatId;
 
+            console.log('🔍 chatId extraído:', chatId);
+
             if (!chatId) {
+                console.error('❌ chatId es requerido');
                 return res.status(400).json({ success: false, error: 'chatId es requerido' });
             }
 
-            const query = 'SELECT * FROM prospectos WHERE chat_id = $1 LIMIT 1';
-            const result = await executeQuery(query, [chatId]);
+            try {
+                const query = 'SELECT * FROM prospectos WHERE chat_id = $1 LIMIT 1';
+                const result = await executeQuery(query, [chatId]);
 
-            if (result && result.length > 0) {
-                return res.status(200).json(result[0]);
-            } else {
-                return res.status(404).json({ success: false, error: 'Prospecto no encontrado' });
+                if (result && result.length > 0) {
+                    console.log('✅ Prospecto encontrado:', result[0].id);
+                    return res.status(200).json(result[0]);
+                } else {
+                    console.log('ℹ️ Prospecto no encontrado para chat_id:', chatId);
+                    return res.status(404).json({ success: false, error: 'Prospecto no encontrado' });
+                }
+            } catch (queryError) {
+                console.error('❌ Error ejecutando query de búsqueda por chat_id:', queryError);
+                throw queryError;
             }
         }
 
@@ -190,8 +228,11 @@ module.exports = async (req, res) => {
         }
 
         // Ruta: /api/neon/prospectos (GET, POST)
-        if (req.method === 'GET') {
+        if (req.method === 'GET' && !isBatchRoute && !isChatRoute && !hasId) {
+            console.log('📋 Obteniendo lista de prospectos...');
             const { user_email, workspace_id, user_id, limit, page_size } = req.query;
+            
+            console.log('📋 Filtros aplicados:', { user_email, workspace_id, user_id, limit, page_size });
             
             let query = 'SELECT * FROM prospectos WHERE 1=1';
             const params = [];
@@ -222,9 +263,14 @@ module.exports = async (req, res) => {
                 params.push(parseInt(page_size));
             }
 
-            const prospectos = await executeQuery(query, params);
-            
-            return res.status(200).json({ success: true, prospectos: prospectos || [], total: prospectos?.length || 0 });
+            try {
+                const prospectos = await executeQuery(query, params);
+                console.log(`✅ ${prospectos?.length || 0} prospectos obtenidos`);
+                return res.status(200).json({ success: true, prospectos: prospectos || [], total: prospectos?.length || 0 });
+            } catch (queryError) {
+                console.error('❌ Error ejecutando query de prospectos:', queryError);
+                throw queryError;
+            }
 
         } else if (req.method === 'POST') {
             const {

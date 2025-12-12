@@ -680,13 +680,22 @@ class NeonService {
 
             if (!response.ok) {
                 if (response.status === 404) {
+                    // 404 no es un error crítico - simplemente significa que no existe
                     return {
                         success: false,
-                        prospect: null
+                        prospect: null,
+                        notFound: true
                     };
                 }
-                const error = await response.json();
-                throw new Error(error.message || 'Error obteniendo prospecto');
+                // Para otros errores, intentar obtener el mensaje de error
+                let errorMessage = 'Error obteniendo prospecto';
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.error || errorMessage;
+                } catch (e) {
+                    errorMessage = `Error ${response.status}: ${response.statusText}`;
+                }
+                throw new Error(errorMessage);
             }
 
             const data = await response.json();

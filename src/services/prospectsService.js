@@ -633,6 +633,9 @@ class ProspectsService {
                             prospect: existing.prospect,
                             newData: prospectData
                         });
+                    } else if (existing.notFound) {
+                        // 404 - no existe, es nuevo
+                        newProspects.push(prospectData);
                     } else if (!existing.error || !existing.error.includes('429')) {
                         // Solo agregar a nuevos si no es error de rate limit
                         newProspects.push(prospectData);
@@ -640,7 +643,7 @@ class ProspectsService {
                         // Si es rate limit, agregar a errores para reintentar después
                         checkErrors.push({
                             prospect: prospectData,
-                            error: existing.error
+                            error: existing.error || 'Error desconocido'
                         });
                     }
                 } catch (error) {
