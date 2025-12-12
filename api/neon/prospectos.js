@@ -30,17 +30,35 @@ module.exports = async (req, res) => {
         // Ruta: /api/neon/prospectos/batch
         if (isBatchRoute && req.method === 'POST') {
             console.log('📦 Procesando batch de prospectos...');
-            const { records } = req.body;
+            console.log('📦 req.body completo:', JSON.stringify(req.body, null, 2));
+            console.log('📦 Tipo de req.body:', typeof req.body);
+            console.log('📦 Claves de req.body:', Object.keys(req.body || {}));
             
-            console.log('📦 Body recibido:', {
+            // En Vercel, el body puede venir parseado o como string
+            let body = req.body;
+            if (typeof body === 'string') {
+                try {
+                    body = JSON.parse(body);
+                    console.log('📦 Body parseado desde string');
+                } catch (e) {
+                    console.error('❌ Error parseando body como string:', e);
+                    return res.status(400).json({ success: false, error: 'Body inválido' });
+                }
+            }
+            
+            const { records } = body || {};
+            
+            console.log('📦 Records extraído:', {
                 hasRecords: !!records,
                 recordsType: Array.isArray(records) ? 'array' : typeof records,
                 recordsLength: Array.isArray(records) ? records.length : 'N/A',
-                firstRecord: Array.isArray(records) && records.length > 0 ? records[0] : null
+                firstRecord: Array.isArray(records) && records.length > 0 ? records[0] : null,
+                firstRecordKeys: Array.isArray(records) && records.length > 0 ? Object.keys(records[0]) : null
             });
 
             if (!Array.isArray(records) || records.length === 0) {
                 console.error('❌ Error: records debe ser un array no vacío');
+                console.error('❌ Body recibido:', JSON.stringify(body, null, 2));
                 return res.status(400).json({ success: false, error: 'records debe ser un array no vacío' });
             }
 
