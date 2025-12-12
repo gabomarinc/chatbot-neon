@@ -368,7 +368,10 @@ class ChatbotDashboard {
         // Navigation - Usar delegación de eventos para asegurar que funcione siempre
         const navList = document.querySelector('.nav-list');
         if (navList) {
-            navList.addEventListener('click', (e) => {
+            // Remover listener anterior si existe
+            navList.removeEventListener('click', this.navClickHandler);
+            // Crear nuevo handler
+            this.navClickHandler = (e) => {
                 const navLink = e.target.closest('.nav-link');
                 if (navLink) {
                     e.preventDefault();
@@ -376,25 +379,45 @@ class ChatbotDashboard {
                     const navItem = navLink.closest('.nav-item');
                     if (navItem && navItem.dataset.section) {
                         const section = navItem.dataset.section;
-                        console.log('🖱️ Click en navegación, sección:', section);
-                        this.navigateToSection(section);
+                        console.log('🖱️ Click en navegación (delegación), sección:', section);
+                        if (this.navigateToSection) {
+                            this.navigateToSection(section);
+                        } else {
+                            console.error('❌ navigateToSection no está disponible');
+                        }
                     }
                 }
-            });
+            };
+            navList.addEventListener('click', this.navClickHandler);
+            console.log('✅ Event listener de navegación configurado (delegación)');
+        } else {
+            console.warn('⚠️ .nav-list no encontrado, reintentando en 500ms...');
+            setTimeout(() => this.setupEventListeners(), 500);
+            return;
         }
         
         // También agregar listeners directos como respaldo
-        document.querySelectorAll('.nav-link').forEach(link => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const section = link.closest('.nav-item')?.dataset.section;
-                if (section) {
-                    console.log('🖱️ Click directo en nav-link, sección:', section);
-                    this.navigateToSection(section);
-                }
+        const navLinks = document.querySelectorAll('.nav-link');
+        if (navLinks.length > 0) {
+            navLinks.forEach(link => {
+                // Remover listener anterior si existe
+                link.removeEventListener('click', this.directNavClickHandler);
+                // Crear nuevo handler
+                this.directNavClickHandler = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const section = link.closest('.nav-item')?.dataset.section;
+                    if (section) {
+                        console.log('🖱️ Click directo en nav-link, sección:', section);
+                        if (this.navigateToSection) {
+                            this.navigateToSection(section);
+                        }
+                    }
+                };
+                link.addEventListener('click', this.directNavClickHandler);
             });
-        });
+            console.log(`✅ ${navLinks.length} event listeners directos configurados`);
+        }
 
         // Sidebar toggle
         const sidebarToggle = document.getElementById('sidebarToggle');
@@ -803,8 +826,16 @@ class ChatbotDashboard {
         
         const tokenInput = document.getElementById('apiToken');
         if (!tokenInput) {
-            console.warn('⚠️ Input #apiToken no encontrado, reintentando en 300ms...');
-            setTimeout(() => this.loadApiToken(), 300);
+            console.warn('⚠️ Input #apiToken no encontrado, reintentando en 200ms...');
+            setTimeout(() => this.loadApiToken(), 200);
+            return;
+        }
+        
+        // Verificar que el tab esté visible
+        const apiConfigTab = document.getElementById('api-config');
+        if (apiConfigTab && apiConfigTab.style.display === 'none') {
+            console.log('⏳ Tab api-config no está visible aún, esperando...');
+            setTimeout(() => this.loadApiToken(), 200);
             return;
         }
 
@@ -1450,8 +1481,14 @@ class ChatbotDashboard {
     navigateToSection(section) {
         console.log('🧭 Navegando a sección:', section);
         
+        if (!section) {
+            console.error('❌ Sección no especificada');
+            return;
+        }
+        
         // Update navigation
-        document.querySelectorAll('.nav-item').forEach(item => {
+        const allNavItems = document.querySelectorAll('.nav-item');
+        allNavItems.forEach(item => {
             item.classList.remove('active');
         });
         
@@ -1462,10 +1499,13 @@ class ChatbotDashboard {
             console.log('✅ Nav item activado:', section);
         } else {
             console.warn('⚠️ No se encontró nav-item para sección:', section);
+            console.warn('⚠️ Secciones disponibles:', Array.from(document.querySelectorAll('.nav-item')).map(item => item.dataset.section));
         }
 
         // Update content - IMPORTANTE: Ocultar TODAS las secciones primero
-        document.querySelectorAll('.content-section').forEach(sec => {
+        const allSections = document.querySelectorAll('.content-section');
+        console.log(`📦 Ocultando ${allSections.length} secciones`);
+        allSections.forEach(sec => {
             sec.classList.remove('active');
             sec.style.display = 'none'; // Forzar ocultar
         });
@@ -1477,6 +1517,7 @@ class ChatbotDashboard {
             console.log('✅ Sección mostrada:', section);
         } else {
             console.error('❌ No se encontró la sección con ID:', section);
+            console.error('❌ Secciones disponibles:', Array.from(allSections).map(sec => sec.id));
         }
 
         // Update page title
