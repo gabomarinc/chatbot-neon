@@ -6,8 +6,8 @@
     <title>Iniciar Sesión - Agentes de IA</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
-    <!-- Emotional Design Styles (se carga condicionalmente) -->
-    <link rel="stylesheet" href="styles-emotional-login.css" id="emotional-design-login-styles" media="none" onload="if(window.emotionalDesignToggle && window.emotionalDesignToggle.isEnabled) this.media='all'">
+    <!-- Emotional Design Styles (siempre activo) -->
+    <link rel="stylesheet" href="styles-emotional-login.css" id="emotional-design-login-styles">
     <style>
         body {
             background: linear-gradient(135deg, #27BEA5 0%, #1ea892 100%);
@@ -299,18 +299,6 @@
     <script src="src/auth/authService.js"></script>
     <script src="src/auth/routeGuard.js"></script>
     <script src="src/auth/login.js"></script>
-    
-    <!-- Activar estilos emocionales del login si está habilitado -->
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            if (window.emotionalDesignToggle && window.emotionalDesignToggle.isEnabled) {
-                const loginStyles = document.getElementById('emotional-design-login-styles');
-                if (loginStyles) {
-                    loginStyles.media = 'all';
-                }
-            }
-        });
-    </script>
     
     <!-- Script de diagnóstico -->
     <script src="diagnose-login.js"></script>

@@ -1,45 +1,43 @@
 /**
- * Sistema de Toggle para Emotional Design
- * Activa el nuevo diseño con ?newUI=1 o mediante un switch en la UI
+ * Sistema de Emotional Design
+ * El nuevo diseño está activado por defecto
  */
 
 class EmotionalDesignToggle {
     constructor() {
-        this.isEnabled = false;
+        this.isEnabled = true; // Activado por defecto
         this.init();
     }
 
     init() {
-        // Verificar si está activado por query parameter
-        const urlParams = new URLSearchParams(window.location.search);
-        const newUIParam = urlParams.get('newUI');
+        // Activar el diseño siempre por defecto
+        // Usar setTimeout para asegurar que el DOM esté listo
+        setTimeout(() => {
+            this.enable();
+            // Eliminar cualquier toggle existente del DOM (si quedó de sesiones anteriores)
+            this.removeExistingToggle();
+        }, 0);
         
-        // Verificar localStorage
-        const savedState = localStorage.getItem('emotionalDesignEnabled');
+        // Guardar estado en localStorage para persistencia
+        localStorage.setItem('emotionalDesignEnabled', 'true');
         
-        // Activar si está en URL o en localStorage
-        if (newUIParam === '1' || savedState === 'true') {
-            // Usar setTimeout para asegurar que el DOM esté listo
-            setTimeout(() => {
-                this.enable();
-            }, 0);
+        // NO crear toggle switch - el diseño está siempre activo
+        // (Comentado para mantener el código pero no ejecutarlo)
+        // this.createToggleSwitch();
+    }
+
+    removeExistingToggle() {
+        // Eliminar el toggle si existe en el DOM
+        const toggleContainer = document.querySelector('.emotional-design-toggle-container');
+        if (toggleContainer) {
+            toggleContainer.remove();
+            console.log('🗑️ Toggle eliminado del DOM');
         }
         
-        // Si está en URL, guardar en localStorage
-        if (newUIParam === '1') {
-            localStorage.setItem('emotionalDesignEnabled', 'true');
-        }
-        
-        // Crear toggle switch en la UI (solo en dashboard)
-        // Esperar a que el DOM esté listo
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => {
-                this.createToggleSwitch();
-            });
-        } else {
-            setTimeout(() => {
-                this.createToggleSwitch();
-            }, 100);
+        // Eliminar los estilos del toggle si existen
+        const toggleStyles = document.getElementById('emotional-design-toggle-styles');
+        if (toggleStyles) {
+            toggleStyles.remove();
         }
     }
 
@@ -141,15 +139,18 @@ class EmotionalDesignToggle {
         console.log('🎨 Emotional Design desactivado');
     }
 
-    toggle() {
-        if (this.isEnabled) {
-            this.disable();
-        } else {
-            this.enable();
-        }
-    }
+    // Método toggle deshabilitado - el diseño está siempre activo
+    // toggle() {
+    //     if (this.isEnabled) {
+    //         this.disable();
+    //     } else {
+    //         this.enable();
+    //     }
+    // }
 
+    // Método createToggleSwitch deshabilitado - no se muestra el toggle
     createToggleSwitch() {
+        return; // No crear el toggle
         // Solo crear el toggle en el dashboard, no en login
         if (window.location.pathname.includes('login.html') || document.querySelector('.login-container')) {
             return;
