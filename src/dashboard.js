@@ -7001,6 +7001,20 @@ class ChatbotDashboard {
     }
 
     async loadProspects() {
+        // Verificar que prospectsService esté disponible
+        if (!window.prospectsService) {
+            console.warn('⚠️ ProspectsService no disponible aún, esperando...');
+            // Esperar un poco y reintentar
+            setTimeout(() => {
+                if (window.prospectsService) {
+                    this.loadProspects();
+                } else {
+                    console.warn('⚠️ ProspectsService aún no disponible, inicializando lista vacía');
+                    this.allProspects = [];
+                }
+            }, 500);
+            return;
+        }
         try {
             console.log('📊 Cargando prospectos...');
             
