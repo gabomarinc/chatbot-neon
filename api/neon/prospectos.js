@@ -50,11 +50,20 @@ module.exports = async (req, res) => {
             for (let i = 0; i < records.length; i++) {
                 const record = records[i];
                 try {
+                    // Log detallado del record recibido
                     console.log(`📝 Procesando prospecto ${i + 1}/${records.length}:`, {
                         nombre: record.nombre,
                         chat_id: record.chat_id,
+                        nombreType: typeof record.nombre,
+                        nombreValue: record.nombre,
+                        chat_idType: typeof record.chat_id,
+                        chat_idValue: record.chat_id,
+                        nombreLength: record.nombre ? record.nombre.length : 0,
+                        chat_idLength: record.chat_id ? record.chat_id.length : 0,
                         hasUserEmail: !!record.user_email,
-                        hasWorkspaceId: !!record.workspace_id
+                        hasWorkspaceId: !!record.workspace_id,
+                        recordKeys: Object.keys(record),
+                        recordCompleto: record
                     });
                     
                     const {
@@ -63,9 +72,14 @@ module.exports = async (req, res) => {
                         documentos_urls, agente_id, notas, comentarios, campos_solicitados
                     } = record;
 
-                    if (!nombre || !chat_id) {
-                        const errorMsg = `nombre y chat_id son requeridos (nombre: ${nombre ? 'OK' : 'FALTA'}, chat_id: ${chat_id ? 'OK' : 'FALTA'})`;
+                    // Validación más estricta - verificar que nombre y chat_id no sean strings vacíos
+                    const nombreValido = nombre && typeof nombre === 'string' && nombre.trim().length > 0;
+                    const chatIdValido = chat_id && typeof chat_id === 'string' && chat_id.trim().length > 0;
+
+                    if (!nombreValido || !chatIdValido) {
+                        const errorMsg = `nombre y chat_id son requeridos (nombre: ${nombreValido ? 'OK' : `FALTA o inválido (${JSON.stringify(nombre)})`}, chat_id: ${chatIdValido ? 'OK' : `FALTA o inválido (${JSON.stringify(chat_id)})`})`;
                         console.error(`❌ Error en prospecto ${i + 1}:`, errorMsg);
+                        console.error(`❌ Record completo que falló:`, JSON.stringify(record, null, 2));
                         errors.push({ record, error: errorMsg });
                         continue;
                     }

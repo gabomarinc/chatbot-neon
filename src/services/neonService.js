@@ -624,6 +624,17 @@ class NeonService {
             
             console.log(`✅ ${records.length} registros válidos preparados para batch (${invalidProspects.length} inválidos descartados)`);
             
+            // Log del primer registro para debug
+            if (records.length > 0) {
+                console.log('🔍 Primer registro a enviar:', {
+                    nombre: records[0].nombre,
+                    chat_id: records[0].chat_id,
+                    tieneNombre: !!records[0].nombre,
+                    tieneChatId: !!records[0].chat_id,
+                    registroCompleto: records[0]
+                });
+            }
+            
             const response = await fetch(`${this.apiBase}/prospectos/batch`, {
                 method: 'POST',
                 headers: {
