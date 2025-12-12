@@ -365,12 +365,34 @@ class ChatbotDashboard {
     }
 
     setupEventListeners() {
-        // Navigation
+        // Navigation - Usar delegación de eventos para asegurar que funcione siempre
+        const navList = document.querySelector('.nav-list');
+        if (navList) {
+            navList.addEventListener('click', (e) => {
+                const navLink = e.target.closest('.nav-link');
+                if (navLink) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const navItem = navLink.closest('.nav-item');
+                    if (navItem && navItem.dataset.section) {
+                        const section = navItem.dataset.section;
+                        console.log('🖱️ Click en navegación, sección:', section);
+                        this.navigateToSection(section);
+                    }
+                }
+            });
+        }
+        
+        // También agregar listeners directos como respaldo
         document.querySelectorAll('.nav-link').forEach(link => {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
-                const section = link.closest('.nav-item').dataset.section;
-                this.navigateToSection(section);
+                e.stopPropagation();
+                const section = link.closest('.nav-item')?.dataset.section;
+                if (section) {
+                    console.log('🖱️ Click directo en nav-link, sección:', section);
+                    this.navigateToSection(section);
+                }
             });
         });
 
