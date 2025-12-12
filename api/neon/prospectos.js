@@ -72,23 +72,28 @@ module.exports = async (req, res) => {
                         documentos_urls, agente_id, notas, comentarios, campos_solicitados
                     } = record;
 
-                    // Validación más estricta - verificar que nombre y chat_id no sean strings vacíos
-                    const nombreValido = nombre && typeof nombre === 'string' && nombre.trim().length > 0;
-                    const chatIdValido = chat_id && typeof chat_id === 'string' && chat_id.trim().length > 0;
+                    // Validación - nombre y chat_id son requeridos (como en Airtable)
+                    // Convertir a string y trim por si acaso
+                    const nombreFinal = String(nombre || '').trim();
+                    const chatIdFinal = String(chat_id || '').trim();
 
-                    if (!nombreValido || !chatIdValido) {
-                        const errorMsg = `nombre y chat_id son requeridos (nombre: ${nombreValido ? 'OK' : `FALTA o inválido (${JSON.stringify(nombre)})`}, chat_id: ${chatIdValido ? 'OK' : `FALTA o inválido (${JSON.stringify(chat_id)})`})`;
+                    if (!nombreFinal || !chatIdFinal) {
+                        const errorMsg = `nombre y chat_id son requeridos (nombre: ${nombreFinal || 'FALTA'}, chat_id: ${chatIdFinal || 'FALTA'})`;
                         console.error(`❌ Error en prospecto ${i + 1}:`, errorMsg);
                         console.error(`❌ Record completo que falló:`, JSON.stringify(record, null, 2));
                         errors.push({ record, error: errorMsg });
                         continue;
                     }
+                    
+                    // Usar los valores procesados
+                    const nombreToUse = nombreFinal;
+                    const chatIdToUse = chatIdFinal;
 
                     const existingQuery = 'SELECT id FROM prospectos WHERE chat_id = $1 LIMIT 1';
-                    const existing = await executeQuery(existingQuery, [chat_id]);
+                    const existing = await executeQuery(existingQuery, [chatIdToUse]);
                     
                     if (existing && existing.length > 0) {
-                        console.log(`ℹ️ Prospecto ya existe (chat_id: ${chat_id}), saltando...`);
+                        console.log(`ℹ️ Prospecto ya existe (chat_id: ${chatIdToUse}), saltando...`);
                         created.push({ ...existing[0], alreadyExists: true });
                         continue;
                     }
@@ -104,11 +109,21 @@ module.exports = async (req, res) => {
                     `;
 
                     const params = [
-                        nombre, chat_id, fecha_extraccion || new Date().toISOString(),
-                        user_email || null, workspace_id || null, user_id || null,
-                        telefono || null, canal || null, fecha_ultimo_mensaje || null,
-                        estado || 'Nuevo', imagenes_urls || null, documentos_urls || null,
-                        agente_id || null, notas || null, comentarios || null,
+                        nombreToUse, 
+                        chatIdToUse, 
+                        fecha_extraccion || new Date().toISOString(),
+                        user_email || null, 
+                        workspace_id || null, 
+                        user_id || null,
+                        telefono || null, 
+                        canal || null, 
+                        fecha_ultimo_mensaje || null,
+                        estado || 'Nuevo', 
+                        imagenes_urls || null, 
+                        documentos_urls || null,
+                        agente_id || null, 
+                        notas || null, 
+                        comentarios || null,
                         campos_solicitados ? (typeof campos_solicitados === 'string' ? campos_solicitados : JSON.stringify(campos_solicitados)) : null
                     ];
 

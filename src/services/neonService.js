@@ -567,34 +567,30 @@ class NeonService {
                 };
             }
             
-            const records = validProspectsData.map((prospectData, index) => {
-                // Asegurarse de que nombre y chat_id no estén vacíos
-                const nombre = (prospectData.nombre || '').trim();
-                const chatId = (prospectData.chatId || '').trim();
-                
-                if (!nombre || !chatId) {
-                    console.error(`❌ Error interno: prospecto ${index + 1} sin nombre o chatId después de validación`);
-                    return null; // Se filtrará después
-                }
-                
+            // Preparar records de forma similar a Airtable - campos básicos siempre presentes
+            const records = validProspectsData.map((prospectData) => {
+                // Campos básicos requeridos (como en Airtable)
                 const record = {
-                    nombre: nombre,
-                    chat_id: chatId,
-                    fecha_extraccion: prospectData.fechaExtraccion || new Date().toISOString(),
-                    user_email: userEmail,
-                    workspace_id: workspaceId,
-                    user_id: userId,
-                    // Agregar todos los campos opcionales que el endpoint espera
-                    telefono: prospectData.telefono || null,
-                    canal: prospectData.canal || null,
-                    fecha_ultimo_mensaje: prospectData.fechaUltimoMensaje || null,
-                    estado: prospectData.estado || 'Nuevo',
-                    agente_id: prospectData.agenteId || null,
-                    notas: prospectData.notas || null,
-                    comentarios: prospectData.comentarios || null
+                    nombre: String(prospectData.nombre || '').trim(),
+                    chat_id: String(prospectData.chatId || '').trim(),
+                    fecha_extraccion: prospectData.fechaExtraccion || new Date().toISOString()
                 };
                 
-                // Manejar arrays que deben ser JSON strings
+                // Campos de asociación (si existen)
+                if (userEmail) record.user_email = userEmail;
+                if (workspaceId) record.workspace_id = workspaceId;
+                if (userId) record.user_id = userId;
+                
+                // Campos opcionales (solo agregar si existen y tienen valor)
+                if (prospectData.telefono) record.telefono = String(prospectData.telefono).trim();
+                if (prospectData.canal) record.canal = String(prospectData.canal).trim();
+                if (prospectData.fechaUltimoMensaje) record.fecha_ultimo_mensaje = prospectData.fechaUltimoMensaje;
+                if (prospectData.estado) record.estado = String(prospectData.estado).trim();
+                if (prospectData.agenteId) record.agente_id = String(prospectData.agenteId).trim();
+                if (prospectData.notas) record.notas = String(prospectData.notas).trim();
+                if (prospectData.comentarios) record.comentarios = String(prospectData.comentarios).trim();
+                
+                // Arrays que deben ser JSON strings (solo si tienen elementos)
                 if (prospectData.imagenesUrls && Array.isArray(prospectData.imagenesUrls) && prospectData.imagenesUrls.length > 0) {
                     record.imagenes_urls = JSON.stringify(prospectData.imagenesUrls);
                 }
@@ -608,7 +604,7 @@ class NeonService {
                 }
                 
                 return record;
-            }).filter(record => record !== null); // Filtrar registros nulos
+            });
             
             // Si después de filtrar no hay registros válidos, retornar error
             if (records.length === 0) {
