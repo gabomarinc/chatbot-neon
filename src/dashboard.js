@@ -68,6 +68,9 @@ class ChatbotDashboard {
 
     async init() {
         try {
+            // Mostrar loader al inicio
+            this.showLoader();
+            
             this.setupEventListeners();
             
             // PRIMERO: Esperar a que NeonService esté disponible
@@ -113,6 +116,9 @@ class ChatbotDashboard {
             this.setupProspectsManagement();
             this.setupHeaderNotifications();
             this.setupNotificationsAndPolling();
+            
+            // Ocultar loader cuando todo esté cargado
+            this.hideLoader();
         } catch (error) {
             console.error('❌ Error en inicialización del dashboard:', error);
             // Asegurar que el dashboard se muestre incluso con errores
@@ -131,6 +137,30 @@ class ChatbotDashboard {
             } catch (initError) {
                 console.error('❌ Error en inicialización básica:', initError);
             }
+            
+            // Ocultar loader incluso si hay errores (para que el usuario vea el dashboard)
+            this.hideLoader();
+        }
+    }
+
+    // ===== LOADER METHODS =====
+    
+    showLoader() {
+        const loader = document.getElementById('dashboardLoader');
+        if (loader) {
+            loader.classList.remove('hidden');
+            console.log('🔄 Loader mostrado');
+        }
+    }
+
+    hideLoader() {
+        const loader = document.getElementById('dashboardLoader');
+        if (loader) {
+            // Pequeño delay para que la animación se vea suave
+            setTimeout(() => {
+                loader.classList.add('hidden');
+                console.log('✅ Loader ocultado');
+            }, 300);
         }
     }
 
