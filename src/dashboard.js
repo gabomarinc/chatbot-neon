@@ -186,19 +186,19 @@ class ChatbotDashboard {
                 
                 if (token && typeof token === 'string' && token.trim() !== '') {
                     console.log('✅ Token válido encontrado, configurando...');
-                    
-                    // Guardar en localStorage para que la API lo use
-                    localStorage.setItem('gptmaker_token', token);
-                    localStorage.setItem('apiToken', token);
+                
+                // Guardar en localStorage para que la API lo use
+                localStorage.setItem('gptmaker_token', token);
+                localStorage.setItem('apiToken', token);
                     console.log('💾 Token guardado en localStorage');
-                    
+                
                     // Actualizar configuración global ANTES de inicializar API
-                    if (window.gptmakerConfig) {
-                        window.gptmakerConfig.setToken(token);
+                if (window.gptmakerConfig) {
+                    window.gptmakerConfig.setToken(token);
                         console.log('✅ Token configurado en gptmakerConfig');
-                    }
-                    if (window.GPTMAKER_CONFIG) {
-                        window.GPTMAKER_CONFIG.token = token;
+                }
+                if (window.GPTMAKER_CONFIG) {
+                    window.GPTMAKER_CONFIG.token = token;
                         console.log('✅ Token configurado en GPTMAKER_CONFIG');
                     }
                     
@@ -220,7 +220,7 @@ class ChatbotDashboard {
                     
                     console.log('✅✅✅ TOKEN API CARGADO DESDE NEON Y CONFIGURADO ✅✅✅');
                     return token; // Retornar el token para uso posterior
-                } else {
+            } else {
                     console.log('ℹ️ Usuario encontrado pero token_api está vacío');
                 }
             } else {
@@ -408,14 +408,14 @@ class ChatbotDashboard {
             this.navClickHandler = (e) => {
                 const navLink = e.target.closest('.nav-link');
                 if (navLink) {
-                    e.preventDefault();
+                e.preventDefault();
                     e.stopPropagation();
                     const navItem = navLink.closest('.nav-item');
                     if (navItem && navItem.dataset.section) {
                         const section = navItem.dataset.section;
                         console.log('🖱️ Click en navegación (delegación), sección:', section);
                         if (this.navigateToSection) {
-                            this.navigateToSection(section);
+                this.navigateToSection(section);
                         } else {
                             console.error('❌ navigateToSection no está disponible');
                         }
@@ -921,7 +921,7 @@ class ChatbotDashboard {
                 console.error('❌ ERROR: No se pudo obtener el email del usuario');
                 console.error('Reintentando en 500ms...');
                 setTimeout(() => this.loadApiToken(), 500);
-                return;
+                    return;
             }
             
             console.log('📧 Email del usuario:', userEmail);
@@ -960,7 +960,7 @@ class ChatbotDashboard {
                     console.log('🔑 Tipo:', typeof token);
                     console.log('🔑 Longitud:', token.length);
                     console.log('🔑 Primeros 30 caracteres:', token.substring(0, 30) + '...');
-                } else {
+            } else {
                     console.warn('⚠️ result.user.token_api es:', token);
                 }
                 
@@ -1585,9 +1585,9 @@ class ChatbotDashboard {
         const sectionEl = document.getElementById(section);
         if (sectionEl) {
             sectionEl.classList.add('fade-in');
-            setTimeout(() => {
+        setTimeout(() => {
                 sectionEl.classList.remove('fade-in');
-            }, 300);
+        }, 300);
         }
         
         console.log('✅ Navegación completada a:', section);
@@ -7099,7 +7099,7 @@ class ChatbotDashboard {
                     this.applyProspectsFilters();
                 } else {
                     // Solo mostrar error si es un error real (conexión, etc.)
-                    throw new Error(result.error || 'Error cargando prospectos');
+                throw new Error(result.error || 'Error cargando prospectos');
                 }
             }
         } catch (error) {
@@ -7284,6 +7284,7 @@ class ChatbotDashboard {
             }
 
             // IMPORTANTE: Recargar chats antes de extraer para incluir chats nuevos
+            // NO recargar prospectos aquí - solo cargar los chats
             console.log('📡 Recargando chats para incluir los más recientes...');
             await this.loadRealData();
             
@@ -7401,8 +7402,13 @@ class ChatbotDashboard {
                     this.showNotification(message, 'warning');
                 }
 
-                // Recargar la lista
-                await this.loadProspects();
+                // IMPORTANTE: Recargar prospectos SOLO DESPUÉS de guardarlos exitosamente
+                if (savedCount > 0 || updatedCount > 0 || alreadyExistsCount > 0) {
+                    console.log('🔄 Recargando lista de prospectos después de guardar...');
+                    await this.loadProspects();
+                } else {
+                    console.log('⚠️ No se guardaron prospectos, no recargando lista');
+                }
             } else {
                 throw new Error(result.error || 'Error extrayendo prospectos');
             }
