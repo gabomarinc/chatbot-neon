@@ -1,4 +1,4 @@
-# Chatbot Dashboard - Neon Version
+# Chatbot Dashboard - Neon Version v1.0
 
 Dashboard web para gestión de chatbots AI con integración a Neon Database (PostgreSQL).
 
